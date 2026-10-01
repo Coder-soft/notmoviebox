@@ -185,6 +185,11 @@ All content surfaces of the original site:
 Detail pages (`/detail`) show seasons/episodes, related titles
 (`/subject/detail-rec`) and a trailer when available.
 
+Every home/tab row that is truncated also has a **View all** link. Rows carry a
+`genreTopId`, and `/ranking-list/content?id=<genreTopId>` expands it to the full,
+paginated list — the same endpoint the site's own "more" button uses. (The one row
+without a `genreTopId`, "Coming Soon", already ships its complete list.)
+
 ## Player
 
 `public/player.js` is the moviethon overlay player adapted into a module:

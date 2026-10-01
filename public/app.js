@@ -12,8 +12,8 @@ import {
   IMG,
   img,
   subjectYear,
-} from "./api.js?v=8";
-import { openPlayer } from "./player.js?v=8";
+} from "./api.js?v=9";
+import { openPlayer } from "./player.js?v=9";
 
 /* ══ config ═══════════════════════════════════════════════════════════════ */
 
@@ -235,8 +235,11 @@ async function viewHome() {
 }
 
 function moreHrefFor(section) {
-  // most home rows can be explored via search of the section title
-  return section.title ? `#/search/${encodeURIComponent(section.title.replace(/[^\w\s]/g, "").trim())}` : null;
+  // Home/tab rows carry a genreTopId that expands to the full list via
+  // /ranking-list/content (the same endpoint the site's own "more" uses).
+  if (!section.genreTopId) return null;
+  const q = section.title ? `?title=${encodeURIComponent(section.title)}` : "";
+  return `#/collection/${section.genreTopId}${q}`;
 }
 
 function filterStrip(filters) {
@@ -412,7 +415,7 @@ async function viewBrowse(tabId) {
 
     const nodes = [el("div", { class: "page-head" }, el("h1", { class: "page-title", text: title }))];
     if (heroSection) nodes.push(hero(heroSection.banner.items));
-    rows.forEach((s) => nodes.push(cardRow(s.title, s.subjects)));
+    rows.forEach((s) => nodes.push(cardRow(s.title, s.subjects, moreHrefFor(s))));
     nodes.push(
       el("section", { class: "row" },
         el("div", { class: "row-head" }, el("h2", { class: "row-title", text: "All titles" })),
@@ -433,6 +436,18 @@ async function viewRanking(id) {
   }
   const head = el("div", { class: "page-head" }, el("h1", { class: "page-title", text: "Most watched" }), el("p", { class: "page-sub", text: menu.name }));
   mount(head, el("div", { class: "filterbar" }, tabs), makeGrid((page) => api.ranking(menu.id, page, 40)));
+}
+
+/** "View all" for a home/tab row: the full paginated list behind its genreTopId. */
+async function viewCollection(genreTopId, params) {
+  const title = params.get("title") || "Collection";
+  const head = el(
+    "div",
+    { class: "page-head" },
+    el("h1", { class: "page-title", text: title }),
+    el("p", { class: "page-sub", text: "All titles in this list" })
+  );
+  mount(head, makeGrid((page) => api.ranking(genreTopId, page, 40)));
 }
 
 async function viewSearch(q) {
@@ -990,6 +1005,9 @@ function route() {
   } else if (seg === "ranking") {
     setActiveNav("ranking");
     viewRanking(arg);
+  } else if (seg === "collection") {
+    setActiveNav("");
+    viewCollection(arg, params);
   } else if (seg === "search") {
     setActiveNav("");
     viewSearch(decodeURIComponent(arg || ""));
