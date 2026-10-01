@@ -8,7 +8,7 @@
 // of scraping globals, and every stream URL is routed through the local media
 // proxy so signed headers / Referer / CDN cookies are applied server-side.
 
-import { mediaUrl, fmtTime, api } from "./api.js?v=9";
+import { mediaUrl, fmtTime, api } from "./api.js?v=10";
 
 /* hls.js (414 KB) and dash.js (794 KB) are only needed once you press play, so
    they are loaded on demand instead of blocking every page load. */
@@ -41,6 +41,8 @@ function mi(n) {
     view_list: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>',
     pip: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor"><path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/></svg>',
     lock: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>',
+    settings: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.74 8.87a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.61.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.42.5.42h3.84c.25 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>',
+    subtitles: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM4 12h4v2H4v-2zm10 6H4v-2h10v2zm6 0h-4v-2h4v2zm0-4H10v-2h10v2z"/></svg>',
   };
   return icons[n] || n;
 }
@@ -277,24 +279,23 @@ export function openPlayer(opts) {
 
   overlay.innerHTML = [
     '<div id="mt-topbar">',
-    '<div class="mt-brand">',
-    '<span class="mt-brand-name">' + mi("smart_display") + " notmoviebox</span>",
-    meta.title ? '<span class="mt-title" title="' + esc(meta.title) + '">' + esc(meta.title) + "</span>" : "",
+    '<div class="mt-top-left">',
+    '<button id="mt-close-btn" class="mt-round-btn" title="Close (Esc)">' + mi("close") + "</button>",
+    '<div class="mt-title-block">',
+    '<div class="mt-title" title="' + esc(meta.title || "") + '">' + esc(meta.title || "") + "</div>",
+    '<div class="mt-subline">',
     epBadge ? '<span class="mt-ep-badge" id="mt-ep-badge">' + epBadge + "</span>" : "",
     '<span class="mt-source-tag" id="mt-source-type">' + ps.type + "</span>",
-    "</div>",
+    "</div></div></div>",
     '<div class="mt-top-actions">',
-    '<select id="mt-quality-select" class="mt-select"></select>',
-    isSeries
-      ? '<button id="mt-toggle-ep" class="mt-icon-btn mt-accent" title="Toggle episodes">' + mi("view_list") + " Episodes</button>"
-      : "",
-    '<button id="mt-close-btn" class="mt-icon-btn mt-danger" title="Close">' + mi("close") + "</button>",
+    isSeries ? '<button id="mt-toggle-ep" class="mt-pill-btn" title="Episodes">' + mi("view_list") + "<span>Episodes</span></button>" : "",
+    '<button id="mt-settings-btn" class="mt-round-btn" title="Settings">' + mi("settings") + "</button>",
     "</div></div>",
     '<div id="mt-body">',
     '<div id="mt-video-wrap">',
     '<video id="mt-video" autoplay playsinline></video>',
     '<div id="mt-subtitle-overlay"></div>',
-    '<div id="mt-loading">Loading…</div>',
+    '<div id="mt-loading"><span class="mt-spinner"></span><span id="mt-loading-text">Loading…</span></div>',
     '<button id="mt-center-play" class="mt-center-play" title="Play">' + mi("play_arrow") + "</button>",
     '<div id="mt-controls">',
     '<div id="mt-progress" class="mt-progress">',
@@ -304,7 +305,7 @@ export function openPlayer(opts) {
     '<div id="mt-progress-tooltip" class="mt-progress-tooltip">0:00</div>',
     "</div>",
     '<div class="mt-controls-row">',
-    '<button id="mt-play-btn" class="mt-ctrl-btn" title="Play/Pause (space)">' + mi("play_arrow") + "</button>",
+    '<button id="mt-play-btn" class="mt-ctrl-btn mt-primary" title="Play/Pause (space)">' + mi("play_arrow") + "</button>",
     '<button id="mt-back-btn" class="mt-ctrl-btn" title="Back 10s (←)">' + mi("skip_previous") + "</button>",
     '<button id="mt-fwd-btn" class="mt-ctrl-btn" title="Forward 10s (→)">' + mi("skip_next") + "</button>",
     '<span id="mt-time-display" class="mt-time">0:00 / 0:00</span>',
@@ -313,26 +314,34 @@ export function openPlayer(opts) {
     '<button id="mt-mute-btn" class="mt-ctrl-btn" title="Mute (m)">' + mi("volume_up") + "</button>",
     '<input id="mt-volume-slider" class="mt-volume-slider" type="range" min="0" max="1" step="0.01" value="1">',
     "</div>",
-    '<select id="mt-speed-select" class="mt-select mt-speed-select" title="Speed">',
-    '<option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option>',
-    "</select>",
-    '<select id="mt-subtitle-select" class="mt-select mt-speed-select" title="Subtitles (c)"><option value="">Subs: Off</option></select>',
-    '<select id="mt-dual-subtitle-select" class="mt-select mt-speed-select" title="Second subtitle"><option value="">Subs2: Off</option></select>',
     '<button id="mt-pip-btn" class="mt-ctrl-btn" title="Picture-in-picture">' + mi("pip") + "</button>",
     '<button id="mt-fullscreen-btn" class="mt-ctrl-btn" title="Fullscreen (f)">' + mi("fullscreen") + "</button>",
     "</div></div>",
     "</div>",
     isSeries
       ? '<div id="mt-ep-panel">' +
-        '<div class="mt-ep-head">' +
-        '<span class="mt-ep-head-title">' + mi("view_list") + " Episodes</span>" +
-        '<button id="mt-close-ep" class="mt-icon-btn mt-ghost" title="Hide">' + mi("close") + "</button>" +
+        '<div class="mt-sheet-head">' +
+        '<span class="mt-sheet-title">' + mi("view_list") + " Episodes</span>" +
+        '<button id="mt-close-ep" class="mt-round-btn mt-small" title="Hide">' + mi("close") + "</button>" +
         "</div>" +
         '<div id="mt-season-tabs"></div>' +
         '<div id="mt-ep-grid"></div>' +
         "</div>"
       : "",
     "</div>",
+    '<div id="mt-settings-panel">',
+    '<div class="mt-sheet-head">',
+    '<span class="mt-sheet-title">' + mi("settings") + " Settings</span>",
+    '<button id="mt-settings-close" class="mt-round-btn mt-small" title="Hide">' + mi("close") + "</button>",
+    "</div>",
+    '<div class="mt-settings-body">',
+    '<label class="mt-field"><span class="mt-field-label">Quality</span><select id="mt-quality-select" class="mt-select"></select></label>',
+    '<label class="mt-field"><span class="mt-field-label">Speed</span><select id="mt-speed-select" class="mt-select">',
+    '<option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option>',
+    "</select></label>",
+    '<label class="mt-field"><span class="mt-field-label">Subtitles</span><select id="mt-subtitle-select" class="mt-select"><option value="">Off</option></select></label>',
+    '<label class="mt-field"><span class="mt-field-label">Second subtitles</span><select id="mt-dual-subtitle-select" class="mt-select"><option value="">Off</option></select></label>',
+    "</div></div>",
     '<div id="mt-error"></div>',
   ].join("");
 
@@ -347,6 +356,16 @@ export function openPlayer(opts) {
   const videoWrap = $("#mt-video-wrap");
   const topbarEl = $("#mt-topbar");
   const controlsEl = $("#mt-controls");
+  const loadingText = $("#mt-loading-text");
+  const settingsPanel = $("#mt-settings-panel");
+
+  function showLoading(text) {
+    if (loadingText) loadingText.textContent = text || "Loading…";
+    loading.style.display = "flex";
+  }
+  function hideLoading() {
+    loading.style.display = "none";
+  }
 
   let currentIdx = 0;
   let hls = null;
@@ -387,7 +406,7 @@ export function openPlayer(opts) {
       sel.value = next;
       loadSource(next);
     } else {
-      loading.style.display = "none";
+      hideLoading();
       errorEl.textContent = msg;
       errorEl.style.display = "block";
     }
@@ -409,12 +428,12 @@ export function openPlayer(opts) {
 
     const url = proxyFor(src);
     if (src.type === "MP4") {
-      loading.style.display = "flex";
+      showLoading();
       video.src = url;
       video.load();
       video.play().catch(() => {});
       video.addEventListener("loadeddata", function on() {
-        loading.style.display = "none";
+        hideLoading();
         video.removeEventListener("loadeddata", on);
       }, { once: true });
       video.addEventListener("error", function onErr() {
@@ -429,7 +448,7 @@ export function openPlayer(opts) {
   }
 
   function loadHls(url) {
-    loading.style.display = "flex";
+    showLoading();
     const ready = window.Hls ? Promise.resolve() : loadVendor("/vendor/hls.min.js");
     ready
       .then(() => {
@@ -438,7 +457,7 @@ export function openPlayer(opts) {
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-          loading.style.display = "none";
+          hideLoading();
           video.play().catch(() => {});
         });
         hls.on(window.Hls.Events.ERROR, (_e, d) => {
@@ -457,7 +476,7 @@ export function openPlayer(opts) {
   }
 
   function loadDash(url) {
-    loading.style.display = "flex";
+    showLoading();
     const ready = window.dashjs ? Promise.resolve() : loadVendor("/vendor/dash.all.min.js");
     ready
       .then(() => {
@@ -489,7 +508,7 @@ export function openPlayer(opts) {
             tryNext("DASH error" + (e?.error?.message ? ": " + e.error.message : ""));
           });
           dash.on(window.dashjs.MediaPlayer.events.CAN_PLAY, () => {
-            loading.style.display = "none";
+            hideLoading();
           });
         } catch (err) {
           tryNext("DASH error: " + (err?.message || err));
@@ -887,8 +906,7 @@ export function openPlayer(opts) {
     meta.curEp = ep;
     updateEpBadge();
     errorEl.style.display = "none";
-    loading.style.display = "flex";
-    loading.textContent = `Loading episode ${ep}…`;
+    showLoading(`Loading episode ${ep}…`);
     try {
       const data = await opts.getPlayData(se, ep);
       if (data && (data.streams?.length || data.hls?.length || data.dash?.length)) {
@@ -901,24 +919,41 @@ export function openPlayer(opts) {
         loadSource(currentIdx);
         loadCaptions();
       } else {
-        loading.style.display = "none";
+        hideLoading();
         errorEl.textContent = "No sources for this episode.";
         errorEl.style.display = "block";
       }
     } catch (err) {
-      loading.style.display = "none";
+      hideLoading();
       errorEl.textContent = "Failed to load episode: " + err.message;
       errorEl.style.display = "block";
     }
   }
 
+  /* ── settings sheet ── */
+  const epPanel = $("#mt-ep-panel");
+  function setSettings(open) {
+    settingsPanel.classList.toggle("mt-open", open);
+  }
+  $("#mt-settings-btn")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setSettings(!settingsPanel.classList.contains("mt-open"));
+  });
+  $("#mt-settings-close")?.addEventListener("click", () => setSettings(false));
+  overlay.addEventListener("click", (e) => {
+    if (!settingsPanel.classList.contains("mt-open")) return;
+    if (settingsPanel.contains(e.target) || e.target.closest("#mt-settings-btn")) return;
+    setSettings(false);
+  });
+
   if (isSeries) {
     buildEpisodes();
-    $("#mt-toggle-ep")?.addEventListener("click", () => {
-      const p = $("#mt-ep-panel");
-      p.style.display = p.style.display === "none" ? "flex" : "none";
+    $("#mt-toggle-ep")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setSettings(false);
+      epPanel.classList.toggle("mt-open");
     });
-    $("#mt-close-ep")?.addEventListener("click", () => ($("#mt-ep-panel").style.display = "none"));
+    $("#mt-close-ep")?.addEventListener("click", () => epPanel.classList.remove("mt-open"));
   }
 
   /* ── close + keys ── */
@@ -944,7 +979,11 @@ export function openPlayer(opts) {
   overlay.querySelector("#mt-close-btn").addEventListener("click", close);
 
   function onKey(e) {
-    if (e.key === "Escape") return close();
+    if (e.key === "Escape") {
+      if (settingsPanel.classList.contains("mt-open")) return setSettings(false);
+      if (epPanel && epPanel.classList.contains("mt-open")) return epPanel.classList.remove("mt-open");
+      return close();
+    }
     const tag = document.activeElement?.tagName;
     if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
     if (e.key === " " || e.key === "k" || e.key === "K") {

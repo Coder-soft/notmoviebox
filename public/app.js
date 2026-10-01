@@ -12,8 +12,8 @@ import {
   IMG,
   img,
   subjectYear,
-} from "./api.js?v=9";
-import { openPlayer } from "./player.js?v=9";
+} from "./api.js?v=10";
+import { openPlayer } from "./player.js?v=10";
 
 /* ══ config ═══════════════════════════════════════════════════════════════ */
 
@@ -133,6 +133,7 @@ function emptyBlock(msg) {
 function card(s) {
   const year = subjectYear(s);
   const poster = img(IMG.cover(s), 320);
+  const meta = [year, s.countryName].filter(Boolean).join(" · ");
   return el(
     "a",
     { class: "card", href: `#/title/${encodeURIComponent(s.detailPath)}` },
@@ -143,10 +144,22 @@ function card(s) {
         ? el("img", { src: poster, alt: s.title, loading: "lazy", decoding: "async" })
         : el("div", { class: "skeleton", style: "width:100%;height:100%" }),
       s.corner ? el("span", { class: "card-badge", text: s.corner }) : null,
-      s.imdbRatingValue ? el("span", { class: "card-rating", text: s.imdbRatingValue }) : null
+      s.imdbRatingValue ? el("span", { class: "card-rating", text: s.imdbRatingValue }) : null,
+      // Netflix-style reveal: the title lives here and expands on hover.
+      el(
+        "div",
+        { class: "card-hover" },
+        el(
+          "div",
+          { class: "card-hover-info" },
+          el("div", { class: "card-hover-title", text: s.title }),
+          meta ? el("div", { class: "card-hover-meta", text: meta }) : null
+        ),
+        el("span", { class: "card-play", text: "▶", "aria-hidden": "true" })
+      )
     ),
     el("div", { class: "card-title", text: s.title }),
-    el("div", { class: "card-sub", text: [year, s.countryName].filter(Boolean).join(" · ") })
+    meta ? el("div", { class: "card-sub", text: meta }) : null
   );
 }
 
@@ -290,23 +303,25 @@ function hero(items) {
 
     content.innerHTML = "";
     content.append(
-      el("div", { class: "hero-kicker", text: item.subjectType === 2 || subject.subjectType === 2 ? "Featured series" : "Featured" }),
-      el("h1", { class: "hero-title", text: subject.title || item.title || "Untitled" }),
-      el(
-        "div",
-        { class: "hero-meta" },
-        subject.releaseDate ? el("span", { text: (subject.releaseDate || "").slice(0, 4) }) : null,
-        subject.imdbRatingValue ? el("span", { text: "★ " + subject.imdbRatingValue }) : null,
-        subject.countryName ? el("span", { text: subject.countryName }) : null,
-        subject.genre ? el("span", { text: subject.genre.split(",").slice(0, 3).join(" · ") }) : null
-      ),
-      subject.description ? el("div", { class: "hero-overview", text: subject.description }) : null,
-      el(
-        "div",
-        { class: "hero-actions" },
-        href ? el("a", { class: "btn btn-primary", href }, "▶ Play") : null,
-        href ? el("a", { class: "btn btn-ghost", href }, "More info") : null
-      )
+      ...[
+        el("div", { class: "hero-kicker", text: item.subjectType === 2 || subject.subjectType === 2 ? "Featured series" : "Featured" }),
+        el("h1", { class: "hero-title", text: subject.title || item.title || "Untitled" }),
+        el(
+          "div",
+          { class: "hero-meta" },
+          subject.releaseDate ? el("span", { text: (subject.releaseDate || "").slice(0, 4) }) : null,
+          subject.imdbRatingValue ? el("span", { text: "★ " + subject.imdbRatingValue }) : null,
+          subject.countryName ? el("span", { text: subject.countryName }) : null,
+          subject.genre ? el("span", { text: subject.genre.split(",").slice(0, 3).join(" · ") }) : null
+        ),
+        subject.description ? el("div", { class: "hero-overview", text: subject.description }) : null,
+        el(
+          "div",
+          { class: "hero-actions" },
+          href ? el("a", { class: "btn btn-primary", href }, "▶ Play") : null,
+          href ? el("a", { class: "btn btn-ghost", href }, "More info") : null
+        ),
+      ].filter(Boolean)
     );
 
     dots.querySelectorAll(".hero-dot").forEach((d, j) => d.classList.toggle("active", j === idx));

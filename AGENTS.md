@@ -46,7 +46,8 @@ public/            static SPA (vanilla JS, no build step)
   api.js           API client, token storage, media-proxy URL builder, img() resize
   app.js           hash router + views (home, channels, browse, ranking,
                    collection, search, detail) + auth modal + drawer
-  player.js        moviethon player, adapted to an ES module
+  player.js        moviethon player, adapted to an ES module (overlay UI with
+                   settings + episodes sheets)
   vendor/          hls.min.js (~414 KB) + dash.all.min.js (~794 KB), lazy-loaded
 server/
   index.mjs        zero-dep Node server: static + API proxy + media proxy + bridge routes
@@ -187,6 +188,21 @@ to draw 150 px thumbnails. Current rules:
    of scroll jank on weak GPUs. The sticky topbar is the main offender.
 5. Images use `loading="lazy"` and `decoding="async"`.
 
+## UI (player + cards)
+
+- **Player** (`public/player.js` + the `mt-*` block in `styles.css`) is a full
+  overlay: a title block, a **settings sheet** (quality / speed / subtitles /
+  second subtitles) and an **episodes sheet** (season tabs + episode grid). Both
+  sheets are driven by an `.mt-open` class — a right-hand panel on desktop, a
+  bottom sheet on phones (`max-width: 820px`). `Esc` closes the settings sheet,
+  then the episodes sheet, then the player. Keep the `mt-*` element ids: the JS
+  binds to them (there is a static check that every referenced id exists).
+- **Cards** are Netflix-style. On hover-capable devices
+  (`@media (hover: hover) and (pointer: fine)`) the title is *not* shown under the
+  poster; it is revealed inside `.card-hover` on hover (image zoom + gradient +
+  play badge). Touch devices have no hover, so they keep `.card-title` /
+  `.card-sub` under the poster. `card()` in `app.js` builds both.
+
 ## Asset versioning (easy to get wrong)
 
 `index.html` loads `/styles.css?v=N` and `/app.js?v=N`, and the modules import each
@@ -194,12 +210,16 @@ other with the same `?v=N`. **When you change any file under `public/`, bump `N`
 everywhere** (`index.html`, and the `import … from "./api.js?v=N"` /
 `"./player.js?v=N"` lines in `app.js` / `player.js`). A mismatch means a stale
 cached module is served, and dynamic assets are served `no-cache` but static ones
-are cached for a day. Currently `v=9`.
+are cached for a day. Currently `v=10`.
 
 ## Conventions
 
 - **No build step, no dependencies, no framework.** Vanilla ES modules, `el()`
   DOM helper. Do not add a bundler or runtime dependency without a strong reason.
+- **`el(tag, props, ...children)` filters `null`/`false`; a raw `.append(null)`
+  does not** — it stringifies to the literal text `"null"`. Pass children through
+  `el()` or spread `[...].filter(Boolean)`. (This is how the hero once rendered
+  the word "null".)
 - ESM everywhere (`"type": "module"`), `node:`-prefixed builtins in `server/`.
 - The server serves unknown paths by falling back to `index.html` (SPA).
 - Static `.html/.css/.js/.mjs/.json` are `no-cache`; everything else is
