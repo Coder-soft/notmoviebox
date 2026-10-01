@@ -46,6 +46,8 @@ export function isLoggedIn() {
   return !!getUserToken();
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function request(path, { method = "GET", body, query } = {}) {
   let url = "/api" + path;
   if (query) {
@@ -62,21 +64,47 @@ async function request(path, { method = "GET", body, query } = {}) {
   const token = getUserToken();
   if (token) headers["x-mb-token"] = token;
 
-  const res = await fetch(url, {
+  const init = {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  };
+
+  // The upstream BFF occasionally drops a connection or answers 502/503/504 for
+  // a moment. Safe methods get one silent retry so a hiccup doesn't blank a page.
+  const retriable = method === "GET" || method === "HEAD";
+  const attempts = retriable ? 2 : 1;
+  let res = null;
+  let netErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      res = await fetch(url, init);
+      netErr = null;
+      if (retriable && i < attempts - 1 && [502, 503, 504].includes(res.status)) {
+        await sleep(500);
+        continue;
+      }
+      break;
+    } catch (err) {
+      netErr = err;
+      res = null;
+      if (i < attempts - 1) {
+        await sleep(500);
+        continue;
+      }
+    }
+  }
+  if (netErr) throw new Error("Can't reach the local server — is it still running?");
 
   const text = await res.text();
   let json;
   try {
     json = JSON.parse(text);
   } catch {
-    throw new Error(`Bad response (${res.status})`);
+    throw new Error(`Unexpected response from the server (${res.status}${res.statusText ? " " + res.statusText : ""})`);
   }
   if (json.code !== 0 && json.code !== 200) {
-    const err = new Error(json.message || json.reason || "Request failed");
+    const err = new Error(json.message || json.reason || `Request failed (${res.status})`);
     err.code = json.code;
     err.payload = json;
     throw err;

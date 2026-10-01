@@ -220,6 +220,14 @@ are cached for a day. Currently `v=10`.
   does not** — it stringifies to the literal text `"null"`. Pass children through
   `el()` or spread `[...].filter(Boolean)`. (This is how the hero once rendered
   the word "null".)
+- **`esc()` is only for `innerHTML`.** `el()`'s `text` prop uses `textContent`, so
+  pre-escaping a message there renders literal `&#39;` / `&amp;`. `toast()` uses
+  `innerHTML` and *does* need `esc()`; `emptyBlock()` / `errorBlock()` do not.
+- **Transient failures are expected** (the BFF occasionally drops a request).
+  `request()` in `api.js` silently retries safe methods once on a network error or
+  a 502/503/504. Views render `errorBlock(msg, retry)` with a "Try again" button.
+  Server error bodies carry `code` + `message` so the client shows something real
+  instead of the generic `Request failed`.
 - ESM everywhere (`"type": "module"`), `node:`-prefixed builtins in `server/`.
 - The server serves unknown paths by falling back to `index.html` (SPA).
 - Static `.html/.css/.js/.mjs/.json` are `no-cache`; everything else is
@@ -262,9 +270,24 @@ Options 2–4 store the token in `localStorage` and send it as `x-mb-token`.
   `index.html` has the right `?v=` and **no eager `vendor/` scripts**.
 - The API/CDN can be exercised directly with `fetch`/`curl` (the `/api/*` proxy is
   a thin wrapper). Use `Origin: https://themoviebox.xyz` when calling upstream.
-- Browser automation tooling is **not guaranteed to be available**. When it isn't,
-  verify by measuring the API/CDN responses and checking the served files, and say
-  so plainly rather than claiming a UI click-through you didn't do.
+- A **headless Chrome for Testing** is vendored at
+  `~/wcli/browsers/chrome/mac-120.0.6099.109/chrome-mac-x64/Google Chrome for
+  Testing.app/Contents/MacOS/Google Chrome for Testing`. Node 22 has a global
+  `WebSocket`, so it can be driven over CDP with **no dependencies**: launch with
+  `--headless=new --remote-debugging-port=<port> --user-data-dir=<fresh dir>`,
+  then `Target.createTarget` + `Target.attachToTarget` (`flatten: true`), then
+  `Runtime.evaluate` / `Page.captureScreenshot`.
+  - Use a **fresh `--user-data-dir` per run**. A leftover Chrome keeps the profile
+    locked and the next launch silently never exposes a debugger.
+  - `Emulation.setDeviceMetricsOverride` + `Emulation.setTouchEmulationEnabled`
+    are needed to make `(max-width: 820px)` / `(hover: none)` match; device
+    metrics alone still report `hover: hover`.
+  - `Network.emulateNetworkConditions({ offline: true })` is a clean way to
+    exercise the error / retry paths.
+  - Do not install browsers.
+- If automation is genuinely unavailable, verify by measuring the API/CDN
+  responses and checking the served files, and say so plainly rather than
+  claiming a UI click-through you didn't do.
 
 ## Hosting history (deliberate removals)
 

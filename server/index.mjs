@@ -118,7 +118,13 @@ async function handleApi(req, res, url) {
       redirect: "follow",
     });
   } catch (err) {
-    return json(res, 502, { error: "upstream_unreachable", detail: String(err) });
+    // The client reads `message`; keep `error`/`detail` for debugging.
+    return json(res, 502, {
+      code: 502,
+      message: "Couldn't reach the MovieBox API — check your connection.",
+      error: "upstream_unreachable",
+      detail: String(err),
+    });
   }
 
   const out = { ...core.CORS, "content-type": upstream.headers.get("content-type") || "application/json" };
@@ -158,7 +164,12 @@ async function proxyMedia(req, res, mediaUrl, headerName, headerValue, pp) {
   try {
     upstream = await fetch(mediaUrl, { headers, redirect: "follow" });
   } catch (err) {
-    return json(res, 502, { error: "media_unreachable", detail: String(err) });
+    return json(res, 502, {
+      code: 502,
+      message: "Couldn't reach the media CDN.",
+      error: "media_unreachable",
+      detail: String(err),
+    });
   }
 
   const ctype = upstream.headers.get("content-type") || "";
@@ -278,7 +289,7 @@ function createServer() {
       return await handleStatic(req, res, url);
     } catch (err) {
       if (res.headersSent) return res.destroy();
-      json(res, 500, { error: "internal", detail: String(err) });
+      json(res, 500, { code: 500, message: "Server error", error: "internal", detail: String(err) });
     }
   });
 }

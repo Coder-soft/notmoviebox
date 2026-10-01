@@ -12,8 +12,8 @@ import {
   IMG,
   img,
   subjectYear,
-} from "./api.js?v=10";
-import { openPlayer } from "./player.js?v=10";
+} from "./api.js?v=11";
+import { openPlayer } from "./player.js?v=11";
 
 /* ══ config ═══════════════════════════════════════════════════════════════ */
 
@@ -127,6 +127,16 @@ function loadingBlock() {
 function emptyBlock(msg) {
   return el("div", { class: "empty-block", text: msg || "Nothing here yet." });
 }
+// Same look as emptyBlock, but with an optional "Try again" — network hiccups
+// (the upstream BFF occasionally drops a request) shouldn't strand the user.
+function errorBlock(msg, retry) {
+  return el(
+    "div",
+    { class: "empty-block error-block" },
+    el("div", { class: "error-msg", text: msg || "Something went wrong." }),
+    retry ? el("button", { class: "btn btn-primary", text: "Try again", onclick: retry }) : null
+  );
+}
 
 /* ══ cards ════════════════════════════════════════════════════════════════ */
 
@@ -207,7 +217,13 @@ function makeGrid(fetchPage, { columns } = {}) {
       if (pager.hasMore === false || (!items.length && page > 1)) done = true;
     } catch (err) {
       done = true;
-      grid.append(emptyBlock("Failed to load: " + esc(err.message)));
+      const node = errorBlock("Failed to load: " + err.message, () => {
+        node.remove();
+        done = false;
+        io.observe(sentinel);
+        load();
+      });
+      grid.append(node);
     } finally {
       busy = false;
       status.style.display = "none";
@@ -243,7 +259,7 @@ async function viewHome() {
     if (!nodes.length) nodes.push(emptyBlock("No content."));
     mount(...nodes);
   } catch (err) {
-    mount(emptyBlock("Failed to load home: " + esc(err.message)));
+    mount(errorBlock("Failed to load home: " + err.message, viewHome));
   }
 }
 
@@ -439,7 +455,7 @@ async function viewBrowse(tabId) {
     );
     mount(...nodes);
   } catch (err) {
-    mount(emptyBlock("Failed to load: " + esc(err.message)));
+    mount(errorBlock("Failed to load: " + err.message, () => viewBrowse(tabId)));
   }
 }
 
@@ -497,7 +513,7 @@ async function viewDetail(detailPath) {
   try {
     data = await api.detail(detailPath);
   } catch (err) {
-    mount(emptyBlock("Failed to load title: " + esc(err.message)));
+    mount(errorBlock("Failed to load title: " + err.message, () => viewDetail(detailPath)));
     return;
   }
 

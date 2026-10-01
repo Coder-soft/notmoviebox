@@ -480,6 +480,11 @@ img { display: block; }
 
 /* ── states ──────────────────────────────────────────────────────────────── */
 .loading-block, .empty-block { padding: 70px 20px; text-align: center; color: var(--muted); }
+.error-block .error-msg { margin-bottom: 18px; color: #ffb4b4; }
+.error-block .btn { display: inline-flex; }
+/* An empty/error block appended inside a card grid should span it, not sit in
+   one narrow column. */
+.grid > .empty-block { grid-column: 1 / -1; }
 .spinner {
   width: 34px;
   height: 34px;
