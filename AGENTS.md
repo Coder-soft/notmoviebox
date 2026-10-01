@@ -250,9 +250,16 @@ Options 2–4 store the token in `localStorage` and send it as `x-mb-token`.
 
 ## Machine / environment gotchas (this machine)
 
-- **Port 8787 is occupied by an unrelated `sync4` process**, so `npm start`
-  auto-bumps to **8788**. Logs are written to `/tmp/nmb*.log` when started with
-  `nohup`.
+- **Port 8787 is held by an unrelated `sync4` process** (`*:8787`). `npm start`
+  normally auto-bumps to **8788**, and the app belongs on **8788**.
+  - The bump only fires on `EADDRINUSE`. Because `sync4` binds the **wildcard**
+    and node binds a **specific** address, node can sometimes *also* bind
+    `127.0.0.1:8787` — leaving **two services on one port** (localhost reaches the
+    app, every other address reaches sync4). If that happens, restart with
+    `PORT=8788` explicitly and confirm with
+    `lsof -nP -iTCP:8787 -sTCP:LISTEN` that only `sync4` remains.
+- Logs go to `/tmp/nmb*.log` when started with `nohup`; start long-running
+  processes as `nohup node server/index.mjs </dev/null >/tmp/nmb.log 2>&1 &`.
 - **`tailscale serve` is broken on this macOS macsys build** —
   `The Tailscale GUI failed to start: … (Tailscale.CLIError error 3.)`. `share.mjs`
   times it out and falls back to the Tailscale IP URL, which works because the
