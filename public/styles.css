@@ -118,6 +118,29 @@ img { display: block; }
 }
 .search input::placeholder { color: var(--muted-2); }
 
+/* Top-bar icon button (currently History). Always reachable, unlike a nav item
+   that gets clipped out of the scrolling nav below ~1100px. */
+.icon-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.icon-btn:hover { color: var(--text); border-color: rgba(255, 59, 78, 0.4); }
+.icon-btn.active { color: var(--accent); border-color: rgba(255, 59, 78, 0.45); background: var(--accent-dim); }
+
+/* While the player is up, its opaque overlay covers the page — stop the app
+   chrome from keeping a blur layer alive underneath it. */
+body.mt-playing #topbar { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg); }
+
 .account {
   flex-shrink: 0;
   background: var(--glass-bg);
@@ -947,6 +970,8 @@ img { display: block; }
   /* the player sheets sit over moving video — keep them nearly solid here */
   #mt-ep-panel,
   #mt-settings-panel { background: rgba(22, 7, 11, 0.97); }
+  /* phones reach History through the drawer; the top bar is already full */
+  #history-btn { display: none; }
 
   .topbar-inner {
     height: auto;

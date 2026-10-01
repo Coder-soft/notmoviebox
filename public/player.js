@@ -8,8 +8,8 @@
 // of scraping globals, and every stream URL is routed through the local media
 // proxy so signed headers / Referer / CDN cookies are applied server-side.
 
-import { mediaUrl, fmtTime, api } from "./api.js?v=14";
-import { getProgress, recordWatch } from "./history.js?v=14";
+import { mediaUrl, fmtTime, api } from "./api.js?v=15";
+import { getProgress, recordWatch } from "./history.js?v=15";
 
 /* hls.js (414 KB) and dash.js (794 KB) are only needed once you press play, so
    they are loaded on demand instead of blocking every page load. */
@@ -374,6 +374,9 @@ export function openPlayer(opts) {
   ].join("");
 
   document.body.appendChild(overlay);
+  // Lets CSS drop the app chrome's backdrop-filter while the player is up, so
+  // nothing keeps compositing a blur behind an opaque full-screen overlay.
+  document.body.classList.add("mt-playing");
 
   const $ = (sel) => overlay.querySelector(sel);
   const video = $("#mt-video");
@@ -447,6 +450,10 @@ export function openPlayer(opts) {
     if (!src) return;
     currentIdx = parseInt(idx, 10);
     statusEl.textContent = src.type;
+    // fresh source: don't judge it on the previous one's health
+    hasPlayed = false;
+    slowRuns = 0;
+    fpsSample = { n: frameCount(), at: 0 };
     video.pause();
     video.removeAttribute("src");
     video.load();
@@ -518,10 +525,7 @@ export function openPlayer(opts) {
           // with no way back down — the "stops and never resumes" symptom.
           try {
             dash.updateSettings({
-              streaming: {
-                abr: { initialBitrate: { video: 1_200_000 } },
-                buffer: { fastSwitchEnabled: true },
-              },
+              streaming: { abr: { initialBitrate: { video: 1_200_000 } } },
             });
           } catch {
             /* older dash.js */
@@ -569,10 +573,13 @@ export function openPlayer(opts) {
 
   sel.addEventListener("change", () => loadSource(sel.value));
 
-  /* Stall watchdog. A CDN blip can leave the element reporting "loading"
-     forever with nothing more arriving — the "stops and never resumes" case,
-     which no error event fires for. Watch actual progress (position or buffered
-     end) instead of events: nudge once, then fall back to another source. */
+  /* Health watchdog — one interval, two failure modes that never raise an error:
+       1. a stalled fetch: the element reports "loading" forever;
+       2. decode-bound playback: ABR only reacts to bandwidth, so a device that
+          cannot decode the 1080p HEVC ladder keeps "playing" at single-digit
+          fps with the position still advancing.
+     Progress is judged by position/buffered end, smoothness by presented
+     frames. Each source is only abandoned once, so a deliberate pick sticks. */
   function bufferedEnd() {
     try {
       return video.buffered.length ? video.buffered.end(video.buffered.length - 1) : 0;
@@ -580,21 +587,86 @@ export function openPlayer(opts) {
       return 0;
     }
   }
+
+  let frames = 0;
+  let fpsSample = { n: 0, at: 0 };
   let hasPlayed = false;
   let nudges = 0;
+  let slowRuns = 0;
   let mark = { t: 0, end: 0, at: Date.now() };
+  const heavySources = new Set();
+
+  // rVFC counter, used only where the playback-quality API is unavailable.
+  function tickFrame() {
+    frames++;
+    video.requestVideoFrameCallback(tickFrame);
+  }
+  if (typeof video.requestVideoFrameCallback === "function") video.requestVideoFrameCallback(tickFrame);
+
+  /* Decoded frames so far. `getVideoPlaybackQuality()` is preferred because it
+     reports decode throughput without needing a compositor (rVFC does not tick
+     for an offscreen or backgrounded video), and decode throughput is exactly
+     what "too heavy for this device" means. */
+  function frameCount() {
+    try {
+      const q = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : null;
+      if (q && typeof q.totalVideoFrames === "number") return q.totalVideoFrames;
+    } catch {
+      /* ignore */
+    }
+    return frames;
+  }
+
+  function presentedFps() {
+    const now = performance.now();
+    const n = frameCount();
+    if (!fpsSample.at) {
+      fpsSample = { n, at: now };
+      return null;
+    }
+    const dt = (now - fpsSample.at) / 1000;
+    if (dt < 2) return null;
+    const delta = n - fpsSample.n;
+    fpsSample = { n, at: now };
+    // Zero new frames means we cannot measure (hidden tab, no compositor) —
+    // that is not a slow decode, so don't judge it.
+    if (delta <= 0) return null;
+    return delta / dt;
+  }
+
   video.addEventListener("playing", () => {
     hasPlayed = true;
     nudges = 0;
+    slowRuns = 0;
+    fpsSample = { n: frameCount(), at: performance.now() };
     mark = { t: video.currentTime, end: bufferedEnd(), at: Date.now() };
   });
-  const stallWatch = setInterval(() => {
+
+  const healthWatch = setInterval(() => {
     // Only judge a stream that has actually started; a slow first load is the
     // loading spinner's job, not the watchdog's.
     if (!hasPlayed || video.paused || video.ended) {
       mark = { t: video.currentTime, end: bufferedEnd(), at: Date.now() };
+      fpsSample = { n: frameCount(), at: performance.now() };
       return;
     }
+
+    // 1. decode-bound? (~9s of single-digit fps)
+    if (video.readyState >= 2) {
+      const fps = presentedFps();
+      if (fps !== null && fps < 12) {
+        if (++slowRuns >= 3 && !heavySources.has(currentIdx)) {
+          heavySources.add(currentIdx);
+          slowRuns = 0;
+          tryNext("This stream is too heavy for this device — trying a lighter one.");
+          return;
+        }
+      } else {
+        slowRuns = 0;
+      }
+    }
+
+    // 2. network-stalled?
     const end = bufferedEnd();
     if (video.currentTime > mark.t + 0.2 || end > mark.end + 0.5) {
       mark = { t: video.currentTime, end, at: Date.now() };
@@ -1065,7 +1137,8 @@ export function openPlayer(opts) {
 
   /* ── close + keys ── */
   function close() {
-    clearInterval(stallWatch);
+    clearInterval(healthWatch);
+    document.body.classList.remove("mt-playing");
     saveProgress(video.currentTime);
     video.pause();
     video.removeAttribute("src");

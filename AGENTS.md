@@ -137,10 +137,24 @@ climbs to the best rendition the link can sustain. Do **not** pin the top
 rendition (`setQualityFor(…, true)`) or disable ABR again: that buffers forever
 on a link that can't hold 1080p and never steps back down.
 
-A **progress-based stall watchdog** (`player.js`) watches playback position and
-buffered end rather than `waiting`/`stalled` events — a stalled CDN fetch raises
-no error and can leave the element reporting "loading" forever. It nudges once,
-then falls back to another source.
+A **health watchdog** (`player.js`, one 3s interval) covers two failure modes
+that never raise an error:
+
+1. **A stalled fetch.** Judged on playback position / buffered end rather than
+   `waiting`/`stalled` events — a stalled CDN fetch can leave the element
+   reporting "loading" forever. It nudges once, then falls back to another
+   source.
+2. **Decode-bound playback.** ABR only reacts to *bandwidth*, so a device that
+   cannot decode the 1080p HEVC ladder keeps "playing" at single-digit fps with
+   the position still advancing. After ~9s below 12 fps the player falls back to
+   a lighter source. The signal is `getVideoPlaybackQuality().totalVideoFrames`
+   (decode throughput), **not** `requestVideoFrameCallback` — rVFC never ticks
+   for an offscreen/backgrounded video, so it reads as 0 fps and would fall back
+   wrongly. A `delta <= 0` sample is ignored for the same reason.
+
+Each source is abandoned at most once (`heavySources`), so a deliberate pick
+sticks. While the player is open, `body.mt-playing` drops the app chrome's
+`backdrop-filter` so nothing keeps compositing a blur under the overlay.
 
 `playConfig.maxResolution: 480` and `vipLocked: true` are still present in the
 response, but the API also returns the DASH URL and its signed header to anonymous
@@ -191,7 +205,13 @@ resume from the same record.
 - Home prepends a **Continue watching** row, linking to `#/history` once there
   are more than 6 entries.
 - `getProgress()` also reads the legacy `nmb_progress_<id>` keys, so positions
-  saved by older builds still resume.
+  saved by older builds still resume. Those keys carry **no** title or slug, so
+  they cannot render a History card; `viewDetail` backfills a real entry the
+  first time the title is opened again, and `#/history` says how many are
+  pending until then.
+- History is reached from the **top-bar icon** (`#history-btn`), not the nav:
+  past ~1100px the scrolling nav clipped it out of sight with no affordance.
+  It is hidden on phones, where the drawer covers it.
 - On phones `.card-sub` is hidden, but `.card-history .card-sub` is kept — there
   that line *is* the progress ("2h 28m left").
 

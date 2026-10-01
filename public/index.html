@@ -6,7 +6,7 @@
     <title>notmoviebox — watch movies &amp; shows</title>
     <meta name="description" content="A standalone MovieBox frontend with the moviethon player." />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css?v=14" />
+    <link rel="stylesheet" href="/styles.css?v=15" />
   </head>
   <body>
     <header id="topbar">
@@ -28,6 +28,10 @@
           <input id="search-input" type="search" placeholder="Search movies, shows…" autocomplete="off" />
         </form>
 
+        <a id="history-btn" class="icon-btn" href="#/history" aria-label="Watch history" title="History">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 0 0-8.5 6H1l3.5 4L8 9H5.6A7 7 0 1 1 12 19a7 7 0 0 1-6.3-4l-1.8.8A9 9 0 1 0 12 3zm1 5h-2v5l4 2.4 1-1.7-3-1.8z"/></svg>
+        </a>
+
         <button id="account-btn" class="account" type="button">
           <span id="account-label">Sign in</span>
         </button>
@@ -45,6 +49,6 @@
     <div id="modal-root"></div>
     <div id="drawer-root"></div>
 
-    <script type="module" src="/app.js?v=14"></script>
+    <script type="module" src="/app.js?v=15"></script>
   </body>
 </html>

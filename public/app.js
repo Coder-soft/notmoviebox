@@ -13,9 +13,18 @@ import {
   img,
   subjectYear,
   fmtTime,
-} from "./api.js?v=14";
-import { openPlayer } from "./player.js?v=14";
-import { getHistory, getProgress, clearHistory, percentWatched, remainingLabel } from "./history.js?v=14";
+} from "./api.js?v=15";
+import { openPlayer } from "./player.js?v=15";
+import {
+  getHistory,
+  getEntry,
+  getProgress,
+  recordWatch,
+  clearHistory,
+  countLegacyProgress,
+  percentWatched,
+  remainingLabel,
+} from "./history.js?v=15";
 
 /* ══ config ═══════════════════════════════════════════════════════════════ */
 
@@ -547,6 +556,23 @@ async function viewDetail(detailPath) {
   const startSe = isSeries ? resumeInfo?.se || seasons[0]?.se || 1 : 0;
   const startEp = isSeries ? resumeInfo?.ep || 1 : 0;
 
+  // Backfill: positions saved by an older build live under `nmb_progress_<id>`,
+  // which carries no title or slug to render a History card from. Now that we
+  // have both, fold it into the history store so it shows up there too.
+  if (resumeInfo && !getEntry(subject.subjectId)) {
+    recordWatch({
+      subjectId: subject.subjectId,
+      subjectType: subject.subjectType,
+      title: subject.title,
+      detailPath: ctx.detailPath,
+      cover: ctx.cover,
+      se: resumeInfo.se,
+      ep: resumeInfo.ep,
+      position: resumeInfo.time,
+      duration: resumeInfo.duration || 0,
+    });
+  }
+
   const backdrop = img(IMG.still({ stills: subject.stills, cover: subject.cover }) || IMG.cover(subject), 1600, 75);
 
   const detail = el(
@@ -726,9 +752,14 @@ function viewHistory() {
   );
 
   if (!items.length) {
+    const legacy = countLegacyProgress();
     mount(
       head,
-      emptyBlock("Nothing watched yet — titles you play show up here so you can pick up where you left off.")
+      emptyBlock(
+        legacy
+          ? `${legacy} saved position${legacy > 1 ? "s" : ""} from an older version — open those titles and they'll appear here.`
+          : "Nothing watched yet — titles you play show up here so you can pick up where you left off."
+      )
     );
     return;
   }
@@ -1033,8 +1064,8 @@ function parseRoute() {
 }
 
 function setActiveNav(hashKey) {
-  document.querySelectorAll("#nav a, .drawer-item").forEach((a) => {
-    a.classList.toggle("active", a.dataset.key === hashKey);
+  document.querySelectorAll("#nav a, .drawer-item, #history-btn").forEach((a) => {
+    a.classList.toggle("active", a.dataset.key === hashKey || (a.id === "history-btn" && hashKey === "history"));
   });
 }
 
@@ -1169,7 +1200,11 @@ function buildNav() {
   const nav = $("#nav");
   if (!nav) return;
   nav.innerHTML = "";
-  NAV.forEach((n) => nav.append(el("a", { href: n.href, dataset: { key: n.key }, text: n.label })));
+  // History is not a category: past ~1100px it is clipped out of the scrolling
+  // nav, so it lives on the top-bar icon instead (and in the drawer on phones).
+  NAV.filter((n) => n.key !== "history").forEach((n) =>
+    nav.append(el("a", { href: n.href, dataset: { key: n.key }, text: n.label }))
+  );
 }
 
 $("#search-form").addEventListener("submit", (e) => {

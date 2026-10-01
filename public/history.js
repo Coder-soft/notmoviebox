@@ -91,6 +91,17 @@ export function clearHistory() {
   }
 }
 
+/** How many positions still exist only in the legacy `nmb_progress_<id>` keys. */
+export function countLegacyProgress() {
+  let n = 0;
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith("nmb_progress_")) n++;
+  } catch {
+    /* ignore */
+  }
+  return n;
+}
+
 export function percentWatched(e) {
   if (!e?.duration) return 0;
   return Math.max(0, Math.min(100, (e.position / e.duration) * 100));
