@@ -13,9 +13,9 @@ import {
   img,
   subjectYear,
   fmtTime,
-} from "./api.js?v=13";
-import { openPlayer } from "./player.js?v=13";
-import { getHistory, getProgress, clearHistory, percentWatched, remainingLabel } from "./history.js?v=13";
+} from "./api.js?v=14";
+import { openPlayer } from "./player.js?v=14";
+import { getHistory, getProgress, clearHistory, percentWatched, remainingLabel } from "./history.js?v=14";
 
 /* ══ config ═══════════════════════════════════════════════════════════════ */
 

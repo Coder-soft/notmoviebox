@@ -204,6 +204,25 @@ same endpoint the site's own "more" button uses. `moreHrefFor()` builds the
 already ships its complete list) intentionally show no link. Do **not** revert this
 to a title search — that returned the wrong content.
 
+## Theme & liquid glass
+
+Red palette on a **flat, solid** background (`--bg: #150509`; the old radial
+gradient was removed deliberately). Everything tints off the `:root` variables:
+`--accent` is the red, `--on-accent` is the near-black used for text sitting on
+a red fill.
+
+"Liquid glass" is one shared recipe, also variable-driven: `--glass-bg` /
+`--glass-bg-strong` fills, `--glass-border` hairline, `--glass-hi` inset
+top-edge highlight, `--glass-blur` / `--glass-sat` for the blur pass.
+
+- **Blur only where something is behind it.** `#topbar`, `.drawer`, `.modal`
+  and the player sheets blur. Chips, the search field and the account button
+  get the translucent fill alone: over a solid page background a blurred chip
+  burns GPU time and shows nothing.
+- **Phones set `--glass-blur: 0`** and use more opaque fills (the
+  `max-width: 820px` block), so the look survives on weak GPUs. The player
+  sheets stay nearly solid there since they sit over moving video.
+
 ## Performance rules (low-end phones)
 
 The lag was almost entirely images: the home page referenced **~205 MB** of artwork
@@ -223,8 +242,10 @@ to draw 150 px thumbnails. Current rules:
    `index.html` — that is ~1.2 MB of blocking JS on every page load.
 3. **`content-visibility: auto`** on `.row` and `.card` so offscreen content isn't
    laid out/painted.
-4. **`backdrop-filter` is disabled on mobile** (`max-width: 820px`) — a known cause
-   of scroll jank on weak GPUs. The sticky topbar is the main offender.
+4. **Liquid-glass blur is off on phones.** The blur radius is a variable
+   (`--glass-blur`: 16px desktop, `0px` at `max-width: 820px`) so the same
+   translucent look costs no per-frame GPU work there. Blur is also applied
+   **only** where a surface actually overlays other content — see below.
 5. Images use `loading="lazy"` and `decoding="async"`.
 
 ## UI (player + cards)
