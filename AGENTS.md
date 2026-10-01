@@ -48,6 +48,8 @@ public/            static SPA (vanilla JS, no build step)
                    collection, search, detail) + auth modal + drawer
   player.js        moviethon player, adapted to an ES module (overlay UI with
                    settings + episodes sheets)
+  history.js       watch history + resume positions (localStorage), shared by
+                   the player and the History view
   vendor/          hls.min.js (~414 KB) + dash.all.min.js (~794 KB), lazy-loaded
 server/
   index.mjs        zero-dep Node server: static + API proxy + media proxy + bridge routes
@@ -171,6 +173,27 @@ Hash router (`parseRoute` / `route()` in `public/app.js`):
 | `#/collection/<genreTopId>?title=…` | View-all grid | `/ranking-list/content?id=<genreTopId>` |
 | `#/search/<q>` | Search | `/subject/search` + `/subject/everyone-search` |
 | `#/title/<detailPath>` | Detail | `/detail`, `/subject/detail-rec`, trailer |
+| `#/history` | History | local `nmb_history` (no API call) |
+
+### History & resume
+
+`public/history.js` owns a single localStorage store (`nmb_history`, newest
+first, capped at 80) that backs **both** the `#/history` view and "start where
+you left off". Each entry keeps the display metadata (`title`, `detailPath`,
+`cover`, `subjectType`) beside the playback state (`position`, `duration`, `se`,
+`ep`), so a card can show progress without a second lookup and the player can
+resume from the same record.
+
+- The player records every ~5s of playback, on pause, on episode switch and on
+  close; it resumes via `video._pendingSeek`, applied on `loadedmetadata`.
+- The detail page swaps "▶ Play" for "▶ Resume 12:34" when an entry exists, and
+  starts on the saved season/episode for series.
+- Home prepends a **Continue watching** row, linking to `#/history` once there
+  are more than 6 entries.
+- `getProgress()` also reads the legacy `nmb_progress_<id>` keys, so positions
+  saved by older builds still resume.
+- On phones `.card-sub` is hidden, but `.card-history .card-sub` is kept — there
+  that line *is* the progress ("2h 28m left").
 
 ### "View all" rows
 
@@ -213,6 +236,9 @@ to draw 150 px thumbnails. Current rules:
   bottom sheet on phones (`max-width: 820px`). `Esc` closes the settings sheet,
   then the episodes sheet, then the player. Keep the `mt-*` element ids: the JS
   binds to them (there is a static check that every referenced id exists).
+- The top bar shows the **exact resolution being decoded** (`1130×481`, not the
+  nominal "480p") in `#mt-res-tag`, driven by `video.videoWidth/videoHeight` on
+  `resize`/`loadedmetadata` plus the HLS/DASH rendition-switch events.
 - **Cards** are Netflix-style. On hover-capable devices
   (`@media (hover: hover) and (pointer: fine)`) the title is *not* shown under the
   poster; it is revealed inside `.card-hover` on hover (image zoom + gradient +

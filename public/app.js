@@ -12,8 +12,10 @@ import {
   IMG,
   img,
   subjectYear,
-} from "./api.js?v=12";
-import { openPlayer } from "./player.js?v=12";
+  fmtTime,
+} from "./api.js?v=13";
+import { openPlayer } from "./player.js?v=13";
+import { getHistory, getProgress, clearHistory, percentWatched, remainingLabel } from "./history.js?v=13";
 
 /* ══ config ═══════════════════════════════════════════════════════════════ */
 
@@ -26,6 +28,7 @@ const NAV = [
   { key: "anime", label: "Anime", href: "#/channel/4" },
   { key: "midnight", label: "Midnight", href: "#/browse/ONEROOM_MIDNIGHT" },
   { key: "ranking", label: "Top 100", href: "#/ranking/6139355499743139400" },
+  { key: "history", label: "History", href: "#/history" },
 ];
 
 const CHANNELS = {
@@ -255,6 +258,10 @@ async function viewHome() {
     const nodes = [];
     if (banner) nodes.push(hero(banner.banner.items));
     if (filters?.filters?.length) nodes.push(filterStrip(filters.filters));
+    // Pick up where you left off, right under the hero.
+    const recent = getHistory().filter((e) => e.detailPath).slice(0, 14);
+    const continueRow = historyRow(recent, "Continue watching", recent.length > 6 ? "#/history" : null);
+    if (continueRow) nodes.push(continueRow);
     for (const s of rows) nodes.push(cardRow(s.title, s.subjects, moreHrefFor(s)));
     if (!nodes.length) nodes.push(emptyBlock("No content."));
     mount(...nodes);
@@ -525,7 +532,20 @@ async function viewDetail(detailPath) {
     allEp: s.allEp || "",
   }));
   const isSeries = subject.subjectType === 2 && seasons.length > 0;
-  const ctx = { subjectId: subject.subjectId, detailPath: subject.detailPath || detailPath, subjectType: subject.subjectType, title: subject.title, seasons };
+  const ctx = {
+    subjectId: subject.subjectId,
+    detailPath: subject.detailPath || detailPath,
+    subjectType: subject.subjectType,
+    title: subject.title,
+    cover: IMG.cover(subject),
+    seasons,
+  };
+
+  // Resume where the viewer left off — the same record the History view shows.
+  const progress = getProgress(subject.subjectId);
+  const resumeInfo = progress && progress.time > 5 ? progress : null;
+  const startSe = isSeries ? resumeInfo?.se || seasons[0]?.se || 1 : 0;
+  const startEp = isSeries ? resumeInfo?.ep || 1 : 0;
 
   const backdrop = img(IMG.still({ stills: subject.stills, cover: subject.cover }) || IMG.cover(subject), 1600, 75);
 
@@ -567,8 +587,8 @@ async function viewDetail(detailPath) {
           { class: "detail-actions" },
           el("button", {
             class: "btn btn-primary",
-            onclick: () => startPlay(ctx, isSeries ? seasons[0].se : 0, isSeries ? 1 : 0),
-          }, "▶ Play"),
+            onclick: () => startPlay(ctx, startSe, startEp),
+          }, resumeInfo ? "▶ Resume " + fmtTime(resumeInfo.time) : "▶ Play"),
           subject.trailer?.videoAddress?.url
             ? el("button", {
                 class: "btn btn-ghost",
@@ -593,8 +613,7 @@ async function viewDetail(detailPath) {
       list
     );
 
-    const saved = readProgress(subject.subjectId);
-    const resume = saved && seasons.some((s) => s.se === saved.se) ? saved : null;
+    const resume = resumeInfo && seasons.some((s) => s.se === resumeInfo.se) ? resumeInfo : null;
 
     function paintEpisodes(season) {
       activeSeason = season;
@@ -629,12 +648,91 @@ async function viewDetail(detailPath) {
   }
 }
 
-function readProgress(subjectId) {
-  try {
-    return JSON.parse(localStorage.getItem("nmb_progress_" + subjectId) || "null");
-  } catch {
-    return null;
+/* ══ history ══════════════════════════════════════════════════════════════ */
+
+function historyCard(e) {
+  const poster = img(e.cover, 320);
+  const pct = percentWatched(e);
+  const left = remainingLabel(e);
+  const meta = [e.se && e.ep ? `S${e.se} · E${e.ep}` : "", left].filter(Boolean).join(" · ");
+  return el(
+    "a",
+    { class: "card card-history", href: `#/title/${encodeURIComponent(e.detailPath)}` },
+    el(
+      "div",
+      { class: "card-poster" },
+      poster
+        ? el("img", { src: poster, alt: e.title, loading: "lazy", decoding: "async" })
+        : el("div", { class: "skeleton", style: "width:100%;height:100%" }),
+      pct > 0 && pct < 98 ? el("div", { class: "card-progress" }, el("span", { style: `width:${pct}%` })) : null,
+      el(
+        "div",
+        { class: "card-hover" },
+        el(
+          "div",
+          { class: "card-hover-info" },
+          el("div", { class: "card-hover-title", text: e.title }),
+          meta ? el("div", { class: "card-hover-meta", text: meta }) : null
+        ),
+        el("span", { class: "card-play", text: "▶", "aria-hidden": "true" })
+      )
+    ),
+    el("div", { class: "card-title", text: e.title }),
+    meta ? el("div", { class: "card-sub", text: meta }) : null
+  );
+}
+
+function historyRow(items, title, moreHref) {
+  if (!items?.length) return null;
+  return el(
+    "section",
+    { class: "row" },
+    el(
+      "div",
+      { class: "row-head" },
+      el("h2", { class: "row-title", text: title }),
+      moreHref ? el("a", { class: "row-more", href: moreHref }, "History ›") : null
+    ),
+    el("div", { class: "scroller" }, items.map(historyCard))
+  );
+}
+
+function viewHistory() {
+  const items = getHistory().filter((e) => e.detailPath);
+  const head = el(
+    "div",
+    { class: "page-head page-head-row" },
+    el(
+      "div",
+      {},
+      el("h1", { class: "page-title", text: "History" }),
+      el("p", {
+        class: "page-sub",
+        text: items.length ? `${items.length} title${items.length > 1 ? "s" : ""} · stored on this device` : "",
+      })
+    ),
+    items.length
+      ? el("button", {
+          class: "btn btn-ghost",
+          text: "Clear history",
+          onclick: () => {
+            if (confirm("Clear your watch history? This cannot be undone.")) {
+              clearHistory();
+              viewHistory();
+            }
+          },
+        })
+      : null
+  );
+
+  if (!items.length) {
+    mount(
+      head,
+      emptyBlock("Nothing watched yet — titles you play show up here so you can pick up where you left off.")
+    );
+    return;
   }
+  mount(head, el("div", { class: "grid" }, items.map(historyCard)));
 }
 
 function hasSources(data) {
@@ -1016,6 +1114,7 @@ function currentNavKey() {
   if (seg === "channel") return Number(arg) === 1 ? "movie" : Number(arg) === 2 ? "tv" : Number(arg) === 4 ? "anime" : "";
   if (seg === "browse") return arg === "ONEROOM_MIDNIGHT" ? "midnight" : "";
   if (seg === "ranking") return "ranking";
+  if (seg === "history") return "history";
   return "";
 }
 
@@ -1036,6 +1135,9 @@ function route() {
   } else if (seg === "ranking") {
     setActiveNav("ranking");
     viewRanking(arg);
+  } else if (seg === "history") {
+    setActiveNav("history");
+    viewHistory();
   } else if (seg === "collection") {
     setActiveNav("");
     viewCollection(arg, params);
@@ -1060,6 +1162,7 @@ const NAV_ICONS = {
   anime: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zM18.5 14l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9zM5.5 14l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>',
   midnight: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
   ranking: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 13h4v7H4zm6-6h4v13h-4zm6 3h4v10h-4z"/></svg>',
+  history: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 0 0-8.5 6H1l3.5 4L8 9H5.6A7 7 0 1 1 12 19a7 7 0 0 1-6.3-4l-1.8.8A9 9 0 1 0 12 3zm1 5h-2v5l4 2.4 1-1.7-3-1.8z"/></svg>',
 };
 
 function buildNav() {

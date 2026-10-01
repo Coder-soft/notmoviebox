@@ -8,7 +8,8 @@
 // of scraping globals, and every stream URL is routed through the local media
 // proxy so signed headers / Referer / CDN cookies are applied server-side.
 
-import { mediaUrl, fmtTime, api } from "./api.js?v=12";
+import { mediaUrl, fmtTime, api } from "./api.js?v=13";
+import { getProgress, recordWatch } from "./history.js?v=13";
 
 /* hls.js (414 KB) and dash.js (794 KB) are only needed once you press play, so
    they are loaded on demand instead of blocking every page load. */
@@ -312,6 +313,7 @@ export function openPlayer(opts) {
     '<div class="mt-subline">',
     epBadge ? '<span class="mt-ep-badge" id="mt-ep-badge">' + epBadge + "</span>" : "",
     '<span class="mt-source-tag" id="mt-source-type">' + ps.type + "</span>",
+    '<span class="mt-res-tag" id="mt-res-tag"></span>',
     "</div></div></div>",
     '<div class="mt-top-actions">',
     isSeries ? '<button id="mt-toggle-ep" class="mt-pill-btn" title="Episodes">' + mi("view_list") + "<span>Episodes</span></button>" : "",
@@ -486,6 +488,7 @@ export function openPlayer(opts) {
           hideLoading();
           video.play().catch(() => {});
         });
+        hls.on(window.Hls.Events.LEVEL_SWITCHED, () => updateResTag());
         hls.on(window.Hls.Events.ERROR, (_e, d) => {
           if (d.fatal) {
             try {
@@ -556,6 +559,7 @@ export function openPlayer(opts) {
           dash.on(window.dashjs.MediaPlayer.events.CAN_PLAY, () => {
             hideLoading();
           });
+          dash.on(window.dashjs.MediaPlayer.events.QUALITY_CHANGE_RENDERED, () => updateResTag());
         } catch (err) {
           tryNext("DASH error: " + (err?.message || err));
         }
@@ -612,14 +616,7 @@ export function openPlayer(opts) {
   }, 3000);
 
   // resume / last-episode
-  let saved = null;
-  if (meta.subjectId) {
-    try {
-      saved = JSON.parse(localStorage.getItem("nmb_progress_" + meta.subjectId) || "null");
-    } catch {
-      /* ignore */
-    }
-  }
+  const saved = meta.subjectId ? getProgress(meta.subjectId) : null;
   if (saved?.time) video._pendingSeek = saved.time;
 
   const needSwitch = saved?.se && saved?.ep && isSeries && (saved.se !== meta.curSe || saved.ep !== meta.curEp);
@@ -685,15 +682,18 @@ export function openPlayer(opts) {
     if (!meta.subjectId || cur <= 5) return;
     const last = video._lastSaved || 0;
     if (Math.abs(cur - last) > 5 || video.paused || video.ended) {
-      try {
-        localStorage.setItem(
-          "nmb_progress_" + meta.subjectId,
-          JSON.stringify({ time: cur, se: meta.curSe, ep: meta.curEp })
-        );
-        video._lastSaved = cur;
-      } catch {
-        /* ignore */
-      }
+      recordWatch({
+        subjectId: meta.subjectId,
+        subjectType: meta.subjectType,
+        title: meta.title,
+        detailPath: meta.detailPath,
+        cover: meta.cover,
+        se: meta.curSe,
+        ep: meta.curEp,
+        position: cur,
+        duration: isFinite(video.duration) ? video.duration : 0,
+      });
+      video._lastSaved = cur;
     }
   }
   function updateProgress() {
@@ -800,6 +800,21 @@ export function openPlayer(opts) {
       video._pendingSeek = 0;
     }
   });
+
+  /* The exact resolution being decoded right now. For MP4 that is the encoded
+     frame size (which can differ from the nominal "480p"); for DASH it follows
+     the ABR rendition, so it changes as the stream adapts. */
+  const resTag = $("#mt-res-tag");
+  function updateResTag() {
+    if (!resTag) return;
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    resTag.textContent = w && h ? `${w}×${h}` : "";
+  }
+  video.addEventListener("resize", updateResTag);
+  video.addEventListener("loadedmetadata", updateResTag);
+  video.addEventListener("playing", updateResTag);
+  updateResTag();
   updatePlayIcon();
   updateVolumeIcon();
 

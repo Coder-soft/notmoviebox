@@ -482,6 +482,21 @@ img { display: block; }
 .loading-block, .empty-block { padding: 70px 20px; text-align: center; color: var(--muted); }
 .error-block .error-msg { margin-bottom: 18px; color: #ffb4b4; }
 .error-block .btn { display: inline-flex; }
+
+/* watch-progress bar on history / continue-watching cards */
+.card-progress {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 3;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  overflow: hidden;
+}
+.card-progress span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.page-head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 /* An empty/error block appended inside a card grid should span it, not sit in
    one narrow column. */
 .grid > .empty-block { grid-column: 1 / -1; }
@@ -647,6 +662,8 @@ img { display: block; }
 .mt-subline { display: flex; align-items: center; gap: 8px; }
 .mt-ep-badge { color: var(--accent); font-size: 11px; font-weight: 600; background: rgba(250, 237, 200, 0.12); border: 1px solid rgba(250, 237, 200, 0.25); border-radius: 999px; padding: 2px 9px; }
 .mt-source-tag { color: rgba(255, 255, 255, 0.55); font-size: 10px; letter-spacing: 0.6px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; padding: 2px 8px; }
+.mt-res-tag { color: var(--accent); font-size: 10px; letter-spacing: 0.6px; border: 1px solid rgba(250, 237, 200, 0.3); border-radius: 999px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+.mt-res-tag:empty { display: none; }
 .mt-top-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 .mt-round-btn {
@@ -967,6 +984,8 @@ img { display: block; }
 @media (max-width: 560px) {
   #app { padding: 18px 14px 48px; }
   .card-sub { display: none; }
+  /* …but on a history card that line *is* the progress ("2h 28m left"). */
+  .card-history .card-sub { display: block; }
   .hero { min-height: 300px; }
   .hero-title { font-size: 22px; }
   .page-title { font-size: 22px; }
