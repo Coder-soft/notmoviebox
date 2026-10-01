@@ -8,7 +8,23 @@
 // of scraping globals, and every stream URL is routed through the local media
 // proxy so signed headers / Referer / CDN cookies are applied server-side.
 
-import { mediaUrl, fmtTime, api } from "./api.js?v=6";
+import { mediaUrl, fmtTime, api } from "./api.js?v=8";
+
+/* hls.js (414 KB) and dash.js (794 KB) are only needed once you press play, so
+   they are loaded on demand instead of blocking every page load. */
+const vendorLoads = {};
+function loadVendor(src) {
+  if (!vendorLoads[src]) {
+    vendorLoads[src] = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("failed to load " + src));
+      document.head.appendChild(s);
+    });
+  }
+  return vendorLoads[src];
+}
 
 function mi(n) {
   const icons = {
@@ -413,66 +429,73 @@ export function openPlayer(opts) {
   }
 
   function loadHls(url) {
-    const start = () => {
-      hls = new window.Hls();
-      hls.loadSource(url);
-      hls.attachMedia(video);
-      hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-        loading.style.display = "none";
-        video.play().catch(() => {});
-      });
-      hls.on(window.Hls.Events.ERROR, (_e, d) => {
-        if (d.fatal) {
-          try {
-            hls.destroy();
-          } catch {
-            /* ignore */
+    loading.style.display = "flex";
+    const ready = window.Hls ? Promise.resolve() : loadVendor("/vendor/hls.min.js");
+    ready
+      .then(() => {
+        if (!window.Hls || !window.Hls.isSupported()) return tryNext("HLS is not supported in this browser.");
+        hls = new window.Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+          loading.style.display = "none";
+          video.play().catch(() => {});
+        });
+        hls.on(window.Hls.Events.ERROR, (_e, d) => {
+          if (d.fatal) {
+            try {
+              hls.destroy();
+            } catch {
+              /* ignore */
+            }
+            hls = null;
+            tryNext("HLS error: " + (d.details || d.type || "unknown"));
           }
-          hls = null;
-          tryNext("HLS error: " + (d.details || d.type || "unknown"));
-        }
-      });
-      loading.style.display = "flex";
-    };
-    if (window.Hls && window.Hls.isSupported()) start();
-    else tryNext("HLS is not supported in this browser.");
+        });
+      })
+      .catch(() => tryNext("Failed to load hls.js."));
   }
 
   function loadDash(url) {
-    if (!window.dashjs || !window.dashjs.MediaPlayer) return tryNext("dash.js is not available.");
-    try {
-      dash = window.dashjs.MediaPlayer().create();
-      // Prefer the highest rendition the API offered (1080p when available).
-      try {
-        dash.updateSettings({ streaming: { abr: { initialBitrate: { video: 10_000_000 } } } });
-      } catch {
-        /* older dash.js */
-      }
-      dash.initialize(video, url, true);
-      dash.on(window.dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+    loading.style.display = "flex";
+    const ready = window.dashjs ? Promise.resolve() : loadVendor("/vendor/dash.all.min.js");
+    ready
+      .then(() => {
+        if (!window.dashjs || !window.dashjs.MediaPlayer) return tryNext("dash.js is not available.");
         try {
-          const list = dash.getBitrateInfoListFor("video") || [];
-          if (list.length) dash.setQualityFor("video", list.length - 1, true);
-        } catch {
-          /* ignore */
+          dash = window.dashjs.MediaPlayer().create();
+          // Prefer the highest rendition the API offered (1080p when available).
+          try {
+            dash.updateSettings({ streaming: { abr: { initialBitrate: { video: 10_000_000 } } } });
+          } catch {
+            /* older dash.js */
+          }
+          dash.initialize(video, url, true);
+          dash.on(window.dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+            try {
+              const list = dash.getBitrateInfoListFor("video") || [];
+              if (list.length) dash.setQualityFor("video", list.length - 1, true);
+            } catch {
+              /* ignore */
+            }
+          });
+          dash.on(window.dashjs.MediaPlayer.events.ERROR, (e) => {
+            try {
+              dash.reset();
+            } catch {
+              /* ignore */
+            }
+            dash = null;
+            tryNext("DASH error" + (e?.error?.message ? ": " + e.error.message : ""));
+          });
+          dash.on(window.dashjs.MediaPlayer.events.CAN_PLAY, () => {
+            loading.style.display = "none";
+          });
+        } catch (err) {
+          tryNext("DASH error: " + (err?.message || err));
         }
-      });
-      dash.on(window.dashjs.MediaPlayer.events.ERROR, (e) => {
-        try {
-          dash.reset();
-        } catch {
-          /* ignore */
-        }
-        dash = null;
-        tryNext("DASH error" + (e?.error?.message ? ": " + e.error.message : ""));
-      });
-      dash.on(window.dashjs.MediaPlayer.events.CAN_PLAY, () => {
-        loading.style.display = "none";
-      });
-      loading.style.display = "flex";
-    } catch (err) {
-      tryNext("DASH error: " + (err?.message || err));
-    }
+      })
+      .catch(() => tryNext("Failed to load dash.js."));
   }
 
   sel.addEventListener("change", () => loadSource(sel.value));

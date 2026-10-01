@@ -10,9 +10,10 @@ import {
   setUserToken,
   getUserToken,
   IMG,
+  img,
   subjectYear,
-} from "./api.js?v=6";
-import { openPlayer } from "./player.js?v=6";
+} from "./api.js?v=8";
+import { openPlayer } from "./player.js?v=8";
 
 /* ══ config ═══════════════════════════════════════════════════════════════ */
 
@@ -131,14 +132,16 @@ function emptyBlock(msg) {
 
 function card(s) {
   const year = subjectYear(s);
-  const poster = IMG.cover(s);
+  const poster = img(IMG.cover(s), 320);
   return el(
     "a",
     { class: "card", href: `#/title/${encodeURIComponent(s.detailPath)}` },
     el(
       "div",
       { class: "card-poster" },
-      poster ? el("img", { src: poster, alt: s.title, loading: "lazy" }) : el("div", { class: "skeleton", style: "width:100%;height:100%" }),
+      poster
+        ? el("img", { src: poster, alt: s.title, loading: "lazy", decoding: "async" })
+        : el("div", { class: "skeleton", style: "width:100%;height:100%" }),
       s.corner ? el("span", { class: "card-badge", text: s.corner }) : null,
       s.imdbRatingValue ? el("span", { class: "card-rating", text: s.imdbRatingValue }) : null
     ),
@@ -279,8 +282,8 @@ function hero(items) {
     const detailPath = subject.detailPath || item.detailPath;
     const href = detailPath ? `#/title/${encodeURIComponent(detailPath)}` : null;
     bg.innerHTML = "";
-    const img = IMG.still({ stills: { url: item.image?.url }, cover: subject.cover });
-    if (img) bg.append(el("img", { src: img, alt: "" }));
+    const backdrop = IMG.still({ stills: { url: item.image?.url }, cover: subject.cover });
+    if (backdrop) bg.append(el("img", { src: img(backdrop, 1600, 75), alt: "", decoding: "async" }));
 
     content.innerHTML = "";
     content.append(
@@ -478,16 +481,22 @@ async function viewDetail(detailPath) {
   const isSeries = subject.subjectType === 2 && seasons.length > 0;
   const ctx = { subjectId: subject.subjectId, detailPath: subject.detailPath || detailPath, subjectType: subject.subjectType, title: subject.title, seasons };
 
-  const backdrop = IMG.still({ stills: subject.stills, cover: subject.cover }) || IMG.cover(subject);
+  const backdrop = img(IMG.still({ stills: subject.stills, cover: subject.cover }) || IMG.cover(subject), 1600, 75);
 
   const detail = el(
     "section",
     { class: "detail-hero" },
-    el("div", { class: "detail-bg" }, backdrop ? el("img", { src: backdrop, alt: "" }) : null),
+    el("div", { class: "detail-bg" }, backdrop ? el("img", { src: backdrop, alt: "", decoding: "async" }) : null),
     el(
       "div",
       { class: "detail-content" },
-      el("div", { class: "detail-poster" }, IMG.cover(subject) ? el("img", { src: IMG.cover(subject), alt: subject.title }) : null),
+      el(
+        "div",
+        { class: "detail-poster" },
+        IMG.cover(subject)
+          ? el("img", { src: img(IMG.cover(subject), 400), alt: subject.title, decoding: "async" })
+          : null
+      ),
       el(
         "div",
         { class: "detail-info" },

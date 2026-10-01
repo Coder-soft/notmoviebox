@@ -200,6 +200,24 @@ Detail pages (`/detail`) show seasons/episodes, related titles
 Every stream URL is routed through `/media`, so signed headers, `Referer` and CDN
 cookies are applied server-side rather than relying on the browser.
 
+## Performance
+
+Tuned for low-end phones:
+
+- **Thumbnails are downscaled by the CDN.** The originals are enormous — the home
+  page references **~205 MB** of artwork, with single covers up to 4.7 MB. Every
+  image is requested through
+  `?x-oss-process=image/resize,w_320/format,jpg/quality,q_70`, which brings the home
+  page to **~7 MB** and a card thumbnail from ~2 MB to ~18 KB. `format,jpg` matters:
+  without it OSS re-encodes to PNG and the thumbnail stays ~200 KB.
+- **hls.js + dash.js are lazy-loaded.** ~1.2 MB of JS combined, now fetched only
+  when you press play instead of blocking every page load.
+- **Off-screen content is skipped** via `content-visibility: auto` on rows and
+  cards, so the 17-row home page and long grids don't lay out/paint offscreen.
+- **`backdrop-filter` is disabled on mobile** — a common cause of scroll jank on
+  weak GPUs.
+- Images use `loading="lazy"` and `decoding="async"`.
+
 ## API endpoints used
 
 ```

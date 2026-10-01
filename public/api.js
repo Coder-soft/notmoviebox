@@ -192,6 +192,24 @@ export const IMG = {
   backdrop: (s) => s?.stills?.url || s?.still?.url || s?.cover?.url || "",
 };
 
+/**
+ * Ask the MovieBox CDN to downscale an image.
+ *
+ * The originals are multi-megabyte (the home page alone references ~205 MB of
+ * artwork). The CDN is Alibaba OSS-backed and honours `x-oss-process`.
+ * `format,jpg` is essential: without it OSS re-encodes to PNG and a thumbnail
+ * stays ~200 KB; with it the same thumbnail is ~20 KB.
+ */
+export function img(url, width = 320, quality = 70) {
+  if (!url) return "";
+  if (url.includes("x-oss-process=")) return url;
+  if (!/\.(jpe?g|png|webp)(\?|$)/i.test(url)) return url;
+  if (!/aoneroom\.com/i.test(url)) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}x-oss-process=image/resize,w_${width}/format,jpg/quality,q_${quality}`;
+}
+
+
 export function fmtTime(sec) {
   if (!isFinite(sec) || sec < 0) sec = 0;
   sec = Math.floor(sec);
