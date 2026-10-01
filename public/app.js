@@ -12,8 +12,8 @@ import {
   IMG,
   img,
   subjectYear,
-} from "./api.js?v=11";
-import { openPlayer } from "./player.js?v=11";
+} from "./api.js?v=12";
+import { openPlayer } from "./player.js?v=12";
 
 /* ══ config ═══════════════════════════════════════════════════════════════ */
 

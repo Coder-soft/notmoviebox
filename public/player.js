@@ -8,7 +8,7 @@
 // of scraping globals, and every stream URL is routed through the local media
 // proxy so signed headers / Referer / CDN cookies are applied server-side.
 
-import { mediaUrl, fmtTime, api } from "./api.js?v=11";
+import { mediaUrl, fmtTime, api } from "./api.js?v=12";
 
 /* hls.js (414 KB) and dash.js (794 KB) are only needed once you press play, so
    they are loaded on demand instead of blocking every page load. */
@@ -216,6 +216,28 @@ async function fetchSubtitle(url) {
 
 /* ── Player ───────────────────────────────────────────────────────────────── */
 
+/* The BFF's DASH ladder is HEVC (`…_1080_h265_…`). Where HEVC cannot be
+   decoded, dash.js silently drops the video AdaptationSet and plays audio over
+   a black screen, so prefer a source this browser can actually decode. */
+function canPlayHevc() {
+  try {
+    const ms = window.MediaSource;
+    if (ms && ms.isTypeSupported) {
+      return (
+        ms.isTypeSupported('video/mp4; codecs="hvc1.1.6.L93.B0"') ||
+        ms.isTypeSupported('video/mp4; codecs="hev1.1.6.L93.B0"')
+      );
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function looksHevc(src) {
+  return /h\.?265|hevc|hvc1|hev1/i.test(src.url || "");
+}
+
 function sourcesFrom(data) {
   // Play whatever the API actually handed over — every source that carries a
   // URL, highest resolution first. This mirrors moviethon: a rendition marked
@@ -231,6 +253,10 @@ function sourcesFrom(data) {
     if (s.url) all.push({ type: "DASH", res: s.resolutions, url: s.url, signHeaderKey: s.signHeaderKey, signCookie: s.signCookie, prePlayApi: s.prePlayApi, vipLocked: s.vipLocked, id: s.id });
   });
   all.sort((a, b) => parseInt(b.res, 10) - parseInt(a.res, 10));
+  // Keep the resolution order, but move sources this browser cannot decode to
+  // the back, so a playable H.264 rendition is chosen first. (sort is stable,
+  // so the highest-to-lowest order is preserved within each group.)
+  if (!canPlayHevc()) all.sort((a, b) => (looksHevc(a) ? 1 : 0) - (looksHevc(b) ? 1 : 0));
   return { sources: all, type: all[0]?.type || "MP4" };
 }
 
@@ -483,19 +509,39 @@ export function openPlayer(opts) {
         if (!window.dashjs || !window.dashjs.MediaPlayer) return tryNext("dash.js is not available.");
         try {
           dash = window.dashjs.MediaPlayer().create();
-          // Prefer the highest rendition the API offered (1080p when available).
+          // Start modest and let ABR climb to the best rendition the link can
+          // actually sustain. Pinning the top rendition (and disabling ABR, as
+          // this used to) means a link that can't hold 1080p buffers forever
+          // with no way back down — the "stops and never resumes" symptom.
           try {
-            dash.updateSettings({ streaming: { abr: { initialBitrate: { video: 10_000_000 } } } });
+            dash.updateSettings({
+              streaming: {
+                abr: { initialBitrate: { video: 1_200_000 } },
+                buffer: { fastSwitchEnabled: true },
+              },
+            });
           } catch {
             /* older dash.js */
           }
           dash.initialize(video, url, true);
           dash.on(window.dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+            let list = [];
             try {
-              const list = dash.getBitrateInfoListFor("video") || [];
-              if (list.length) dash.setQualityFor("video", list.length - 1, true);
+              list = dash.getBitrateInfoListFor("video") || [];
             } catch {
               /* ignore */
+            }
+            // No video rendition survived dash.js's capability filter (an HEVC
+            // ladder in a browser without HEVC): it would play audio over a
+            // black screen and never raise an error, so stop it and move on.
+            if (!list.length) {
+              try {
+                dash.reset();
+              } catch {
+                /* ignore */
+              }
+              dash = null;
+              return tryNext("No supported video track in this stream.");
             }
           });
           dash.on(window.dashjs.MediaPlayer.events.ERROR, (e) => {
@@ -518,6 +564,52 @@ export function openPlayer(opts) {
   }
 
   sel.addEventListener("change", () => loadSource(sel.value));
+
+  /* Stall watchdog. A CDN blip can leave the element reporting "loading"
+     forever with nothing more arriving — the "stops and never resumes" case,
+     which no error event fires for. Watch actual progress (position or buffered
+     end) instead of events: nudge once, then fall back to another source. */
+  function bufferedEnd() {
+    try {
+      return video.buffered.length ? video.buffered.end(video.buffered.length - 1) : 0;
+    } catch {
+      return 0;
+    }
+  }
+  let hasPlayed = false;
+  let nudges = 0;
+  let mark = { t: 0, end: 0, at: Date.now() };
+  video.addEventListener("playing", () => {
+    hasPlayed = true;
+    nudges = 0;
+    mark = { t: video.currentTime, end: bufferedEnd(), at: Date.now() };
+  });
+  const stallWatch = setInterval(() => {
+    // Only judge a stream that has actually started; a slow first load is the
+    // loading spinner's job, not the watchdog's.
+    if (!hasPlayed || video.paused || video.ended) {
+      mark = { t: video.currentTime, end: bufferedEnd(), at: Date.now() };
+      return;
+    }
+    const end = bufferedEnd();
+    if (video.currentTime > mark.t + 0.2 || end > mark.end + 0.5) {
+      mark = { t: video.currentTime, end, at: Date.now() };
+      nudges = 0;
+      return;
+    }
+    if (Date.now() - mark.at < 15000) return;
+    mark.at = Date.now();
+    if (nudges++ === 0) {
+      try {
+        video.currentTime = video.currentTime + 0.1; // make the loader re-request
+        video.play().catch(() => {});
+      } catch {
+        /* ignore */
+      }
+    } else {
+      tryNext("Playback stalled — trying another source.");
+    }
+  }, 3000);
 
   // resume / last-episode
   let saved = null;
@@ -958,6 +1050,7 @@ export function openPlayer(opts) {
 
   /* ── close + keys ── */
   function close() {
+    clearInterval(stallWatch);
     saveProgress(video.currentTime);
     video.pause();
     video.removeAttribute("src");

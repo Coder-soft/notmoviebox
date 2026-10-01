@@ -109,9 +109,10 @@ site's session.
 
 ## Playback mechanics (do not regress)
 
-**No account needed; it plays at 1080p.** Anonymous clients get the same thing the
-official player gets: a free MP4 plus a **DASH ladder at 1080/720/480** (HEVC video
-+ AAC audio). Two things gate it, both of which the site itself satisfies:
+**No account needed.** Anonymous clients get the same thing the official player
+gets: a free **H.264 MP4** (360/480p) plus a **DASH ladder at 1080/720/480** whose
+video is **HEVC** (`…_1080_h265_…`). Two things gate it, both of which the site
+itself satisfies:
 
 1. **Referer.** `/subject/play` must carry
    `Referer: https://themoviebox.xyz/movies/<detailPath>?id=<subjectId>&type=/movie/detail&detailSe=&detailEp=&lang=en`.
@@ -121,8 +122,23 @@ official player gets: a free MP4 plus a **DASH ladder at 1080/720/480** (HEVC vi
    `signCookie` value. Without that header the CDN returns `403 ACCESS DENIED`; with
    it you get the full 1080p ladder. This is exactly what moviethon does.
 
-The player defaults to the **highest-resolution source available** (DASH 1080p),
-forces the top rendition, and falls back automatically if a codec can't decode.
+The player picks the **best source this browser can actually decode**, not simply
+the highest number. Because the DASH ladder is HEVC, on anything without HEVC
+(most desktop Chrome, many low-end Android devices) dash.js **silently drops the
+video AdaptationSet and plays audio over a black screen** — no error is raised.
+`canPlayHevc()` in `player.js` therefore pushes HEVC sources behind the H.264
+MP4s, and `loadDash()` treats an empty `getBitrateInfoListFor("video")` as a
+failure so it falls through to the next source.
+
+Where HEVC *is* supported the 1080p ladder is used with **ABR left on**, so it
+climbs to the best rendition the link can sustain. Do **not** pin the top
+rendition (`setQualityFor(…, true)`) or disable ABR again: that buffers forever
+on a link that can't hold 1080p and never steps back down.
+
+A **progress-based stall watchdog** (`player.js`) watches playback position and
+buffered end rather than `waiting`/`stalled` events — a stalled CDN fetch raises
+no error and can leave the element reporting "loading" forever. It nudges once,
+then falls back to another source.
 
 `playConfig.maxResolution: 480` and `vipLocked: true` are still present in the
 response, but the API also returns the DASH URL and its signed header to anonymous
