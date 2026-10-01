@@ -13,8 +13,8 @@ import {
   img,
   subjectYear,
   fmtTime,
-} from "./api.js?v=15";
-import { openPlayer } from "./player.js?v=15";
+} from "./api.js?v=16";
+import { openPlayer } from "./player.js?v=16";
 import {
   getHistory,
   getEntry,
@@ -24,7 +24,7 @@ import {
   countLegacyProgress,
   percentWatched,
   remainingLabel,
-} from "./history.js?v=15";
+} from "./history.js?v=16";
 
 /* ══ config ═══════════════════════════════════════════════════════════════ */
 

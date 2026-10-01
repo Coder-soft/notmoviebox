@@ -45,6 +45,72 @@ a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; color: inherit; }
 img { display: block; }
 
+/* ── scrollbars ────────────────────────────────────────────────────────────
+   One design across both axes: a bare track and a rounded thumb inset with a
+   transparent border, so it reads as a floating pill rather than a filled
+   gutter. Muted red at rest, saturating to the accent on hover and while
+   dragging.
+
+   Deliberately no transitions — scrollbar pseudo-elements repaint on every
+   frame while scrolling and animating them is a real cost on weak GPUs.
+   Phone browsers use overlay scrollbars and ignore most of this, which is
+   exactly what we want there. */
+:root {
+  --sb-thumb: rgba(255, 96, 112, 0.3);
+  --sb-thumb-hover: rgba(255, 59, 78, 0.62);
+  --sb-thumb-active: rgba(255, 59, 78, 0.92);
+  --sb-track: rgba(255, 255, 255, 0.035);
+  --sb-inset: 3px;
+}
+
+/* Firefox */
+html { scrollbar-width: thin; scrollbar-color: var(--sb-thumb) var(--sb-track); }
+
+/* WebKit / Blink */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--sb-track); }
+::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
+  border: var(--sb-inset) solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); background-clip: padding-box; }
+::-webkit-scrollbar-thumb:active { background: var(--sb-thumb-active); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-button { display: none; }
+
+/* Horizontal rails — home rows and the season tabs. Slimmer, bare track, and a
+   tighter inset so the pill still reads at 8px. */
+.scroller,
+.season-tabs {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) transparent;
+}
+.scroller::-webkit-scrollbar,
+.season-tabs::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroller::-webkit-scrollbar-track,
+.season-tabs::-webkit-scrollbar-track { background: transparent; }
+.scroller::-webkit-scrollbar-thumb,
+.season-tabs::-webkit-scrollbar-thumb { border-width: 2px; }
+
+/* Narrow vertical panels — the drawer list, auth modal and episode grid. */
+.drawer-list,
+.modal,
+#mt-ep-grid {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) transparent;
+}
+.drawer-list::-webkit-scrollbar,
+.modal::-webkit-scrollbar,
+#mt-ep-grid::-webkit-scrollbar { width: 8px; height: 8px; }
+.drawer-list::-webkit-scrollbar-track,
+.modal::-webkit-scrollbar-track,
+#mt-ep-grid::-webkit-scrollbar-track { background: transparent; }
+.drawer-list::-webkit-scrollbar-thumb,
+.modal::-webkit-scrollbar-thumb,
+#mt-ep-grid::-webkit-scrollbar-thumb { border-width: 2px; }
+
 /* ── liquid glass ──────────────────────────────────────────────────────────
    Blur is only applied where a surface actually overlays other content: with a
    solid page background, blurring a chip or a search field burns GPU time and
@@ -256,10 +322,7 @@ body.mt-playing #topbar { -webkit-backdrop-filter: none; backdrop-filter: none; 
   overflow-x: auto;
   padding-bottom: 8px;
   scroll-snap-type: x proximity;
-  scrollbar-width: thin;
 }
-.scroller::-webkit-scrollbar { height: 8px; }
-.scroller::-webkit-scrollbar-thumb { background: rgba(255, 59, 78, 0.18); border-radius: 8px; }
 
 .grid {
   display: grid;
@@ -896,8 +959,6 @@ body.mt-playing #topbar { -webkit-backdrop-filter: none; backdrop-filter: none; 
 .mt-season-tab.mt-active { background: var(--accent); color: #1a0509; font-weight: 700; }
 .mt-season-tab:hover:not(.mt-active) { background: rgba(255, 59, 78, 0.12); }
 #mt-ep-grid { flex: 1; overflow-y: auto; padding: 12px 16px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 8px; align-content: start; }
-#mt-ep-grid::-webkit-scrollbar { width: 6px; }
-#mt-ep-grid::-webkit-scrollbar-thumb { background: rgba(255, 59, 78, 0.25); border-radius: 4px; }
 .mt-ep-cell { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 9px 0; font-size: 12px; cursor: pointer; text-align: center; font-weight: 500; transition: background 0.12s, border-color 0.12s; }
 .mt-ep-cell.mt-active { background: var(--accent); color: #1a0509; border-color: var(--accent); font-weight: 700; }
 .mt-ep-cell:hover:not(.mt-active) { background: rgba(255, 59, 78, 0.16); }
@@ -972,6 +1033,21 @@ body.mt-playing #topbar { -webkit-backdrop-filter: none; backdrop-filter: none; 
   #mt-settings-panel { background: rgba(22, 7, 11, 0.97); }
   /* phones reach History through the drawer; the top bar is already full */
   #history-btn { display: none; }
+
+  /* Android honours ::-webkit-scrollbar (iOS uses overlay bars and ignores it),
+     so slim everything down where screen width is scarce. */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { border-width: 1px; }
+  .scroller::-webkit-scrollbar,
+  .season-tabs::-webkit-scrollbar,
+  .drawer-list::-webkit-scrollbar,
+  .modal::-webkit-scrollbar,
+  #mt-ep-grid::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scroller::-webkit-scrollbar-thumb,
+  .season-tabs::-webkit-scrollbar-thumb,
+  .drawer-list::-webkit-scrollbar-thumb,
+  .modal::-webkit-scrollbar-thumb,
+  #mt-ep-grid::-webkit-scrollbar-thumb { border-width: 1px; }
 
   .topbar-inner {
     height: auto;

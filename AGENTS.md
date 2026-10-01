@@ -243,6 +243,24 @@ top-edge highlight, `--glass-blur` / `--glass-sat` for the blur pass.
   `max-width: 820px` block), so the look survives on weak GPUs. The player
   sheets stay nearly solid there since they sit over moving video.
 
+### Scrollbars
+
+One design for both axes: a bare track plus a rounded thumb inset with a
+transparent border (`background-clip: padding-box`), so it reads as a floating
+pill rather than a filled gutter. Muted red at rest, accent red on hover/drag.
+Sizes: **11px** for the page, **8px** for horizontal rails and narrow panels,
+**6px** on phones. All of it lives in one block near the top of `styles.css`.
+
+- **No transitions.** Scrollbar pseudo-elements repaint on every frame while
+  scrolling; animating them is a real cost on weak GPUs.
+- Styling `::-webkit-scrollbar` forces Chrome off its macOS *overlay* bars onto
+  space-taking ones, so the page bar occupies 11px of layout. That is the quick
+  way to confirm the styling is live: `innerWidth - documentElement.clientWidth`.
+- Android honours the pseudo-elements; iOS uses overlay scrollbars and ignores
+  the whole block, which is the desired behaviour there.
+- Firefox gets `scrollbar-width: thin` + `scrollbar-color`; the pill geometry is
+  Chromium-only.
+
 ## Performance rules (low-end phones)
 
 The lag was almost entirely images: the home page referenced **~205 MB** of artwork

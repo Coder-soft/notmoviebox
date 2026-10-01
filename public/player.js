@@ -8,8 +8,8 @@
 // of scraping globals, and every stream URL is routed through the local media
 // proxy so signed headers / Referer / CDN cookies are applied server-side.
 
-import { mediaUrl, fmtTime, api } from "./api.js?v=15";
-import { getProgress, recordWatch } from "./history.js?v=15";
+import { mediaUrl, fmtTime, api } from "./api.js?v=16";
+import { getProgress, recordWatch } from "./history.js?v=16";
 
 /* hls.js (414 KB) and dash.js (794 KB) are only needed once you press play, so
    they are loaded on demand instead of blocking every page load. */
