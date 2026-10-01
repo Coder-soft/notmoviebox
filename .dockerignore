@@ -1,0 +1,7 @@
+.git
+.wrangler
+node_modules
+research
+dist
+*.log
+.DS_Store

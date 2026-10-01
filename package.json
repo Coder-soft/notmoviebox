@@ -1,0 +1,14 @@
+{
+  "name": "notmoviebox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone MovieBox replacement frontend with the moviethon player",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy"
+  },
+  "engines": { "node": ">=20" }
+}
