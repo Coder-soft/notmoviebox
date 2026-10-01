@@ -9,9 +9,15 @@
     "dev": "node --watch server/index.mjs",
     "share": "node scripts/share.mjs",
     "share:funnel": "node scripts/share.mjs --funnel",
-    "lan": "HOST=0.0.0.0 node server/index.mjs"
+    "lan": "HOST=0.0.0.0 node server/index.mjs",
+    "link": "node scripts/link.mjs",
+    "unlink": "node scripts/link.mjs --unlink"
   },
   "engines": {
     "node": ">=20"
+  },
+  "bin": {
+    "notmoviebox": "bin/notmoviebox.mjs",
+    "nmb": "bin/notmoviebox.mjs"
   }
 }

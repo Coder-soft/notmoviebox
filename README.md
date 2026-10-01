@@ -73,6 +73,30 @@ the server, and resets `tailscale serve` if it was configured.
 Flags: `--port <n>`, `--https-port <n>`, `--funnel`, `--no-tailscale`,
 `--keep-serve`.
 
+## CLI
+
+Link the CLI onto your PATH so it runs from anywhere:
+
+```bash
+npm run link       # or: npm link   (needs a writable global npm prefix)
+npm run unlink
+```
+
+`npm run link` tries `npm link` first. If the global npm prefix isn't writable
+(common with Homebrew/system Node — `/usr/local/lib/node_modules` is root-owned),
+it falls back to symlinking the bin into the first writable directory already on
+your PATH, which needs no sudo. It installs two commands:
+
+```bash
+notmoviebox              # share on LAN + Tailscale (default)
+nmb                      # short alias, same thing
+notmoviebox serve        # local only (127.0.0.1)
+notmoviebox share --port 9000
+notmoviebox serve --port 8080
+notmoviebox help
+notmoviebox version
+```
+
 ## Why there is a server
 
 The MovieBox API and its CDN need two things a plain static page cannot do from a
