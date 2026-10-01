@@ -4,8 +4,7 @@
 // MovieBox BFF API (/api/*), proxies CDN media (/media, /media/<token>/<rel>),
 // and exposes the optional Chrome bridge (Node-only, for signed-in sessions).
 //
-// Shared proxy logic lives in ../shared/core.js so the Cloudflare Worker
-// (worker/index.js) behaves identically. Node >= 20.
+// Shared proxy logic lives in ../shared/core.js. Node >= 20.
 
 import http from "node:http";
 import { readFile, stat } from "node:fs/promises";

@@ -1,5 +1,4 @@
 .git
-.wrangler
 node_modules
 research
 dist

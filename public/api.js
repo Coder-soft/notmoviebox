@@ -8,19 +8,6 @@
 const TOKEN_KEY = "nmb_token";
 const USER_KEY = "nmb_user";
 
-// Optional absolute proxy base (set via <meta name="proxy-base" content="...">).
-// Empty means "same origin" — the local Node server and a full Worker deploy.
-// The deployed Worker UI can point this at a proxy that can reach the MovieBox
-// API (the API returns 429 to Cloudflare's egress IPs).
-export const PROXY_BASE = (() => {
-  try {
-    const meta = document.querySelector('meta[name="proxy-base"]');
-    return (meta?.content || "").trim().replace(/\/+$/, "");
-  } catch {
-    return "";
-  }
-})();
-
 export function getUserToken() {
   try {
     return localStorage.getItem(TOKEN_KEY) || "";
@@ -60,7 +47,7 @@ export function isLoggedIn() {
 }
 
 async function request(path, { method = "GET", body, query } = {}) {
-  let url = PROXY_BASE + "/api" + path;
+  let url = "/api" + path;
   if (query) {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(query)) {
@@ -164,10 +151,10 @@ export const api = {
 // ── Browser bridge (uses a real signed-in Chrome session) ────────────────────
 
 export const bridgeApi = {
-  status: () => fetch(PROXY_BASE + "/api/bridge/status").then((r) => r.json()),
-  session: () => fetch(PROXY_BASE + "/api/bridge/session").then((r) => r.json()),
-  start: () => fetch(PROXY_BASE + "/api/bridge/start", { method: "POST" }).then((r) => r.json()),
-  stop: () => fetch(PROXY_BASE + "/api/bridge/stop", { method: "POST" }).then((r) => r.json()),
+  status: () => fetch("/api/bridge/status").then((r) => r.json()),
+  session: () => fetch("/api/bridge/session").then((r) => r.json()),
+  start: () => fetch("/api/bridge/start", { method: "POST" }).then((r) => r.json()),
+  stop: () => fetch("/api/bridge/stop", { method: "POST" }).then((r) => r.json()),
 };
 
 // ── Media proxy helpers ──────────────────────────────────────────────────────
@@ -194,7 +181,7 @@ export function mediaUrl(rawUrl, { signHeaderKey, signCookie, prePlayApi } = {})
     params.set("v", signCookie);
   }
   if (prePlayApi) params.set("pp", b64url(prePlayApi));
-  return PROXY_BASE + "/media?" + params.toString();
+  return "/media?" + params.toString();
 }
 
 // ── Presentation helpers ─────────────────────────────────────────────────────

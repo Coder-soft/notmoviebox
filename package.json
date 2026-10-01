@@ -6,9 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.mjs",
-    "dev": "node --watch server/index.mjs",
-    "worker:dev": "wrangler dev",
-    "worker:deploy": "wrangler deploy"
+    "dev": "node --watch server/index.mjs"
   },
   "engines": { "node": ">=20" }
 }

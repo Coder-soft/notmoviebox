@@ -1,8 +1,7 @@
 # notmoviebox — container image.
 #
 # Runs the Node server (static SPA + API proxy + media proxy). No dependencies,
-# so this image is tiny and starts instantly. Works on any container host
-# (Oracle Cloud, Google Cloud Run, Render, Koyeb, Hugging Face Spaces, a VPS…).
+# so this image is tiny and starts instantly.
 
 FROM node:20-alpine
 

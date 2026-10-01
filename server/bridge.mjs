@@ -128,7 +128,6 @@ export class Bridge {
   status() {
     return {
       running: this.running,
-      available: true,
       chrome: this.chrome || findChrome() || null,
       site: SITE,
       profile: PROFILE_DIR,

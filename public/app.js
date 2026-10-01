@@ -831,18 +831,6 @@ function openLogin() {
     status
   );
 
-  // The browser bridge only exists on the Node server; hide it on Workers etc.
-  bridgeApi
-    .status()
-    .then((s) => {
-      setBridgeState(s || {});
-      if (s && s.available === false) {
-        bridgeBlock.style.display = "none";
-        bridgeDivider.style.display = "none";
-      }
-    })
-    .catch(() => {});
-
   const modal = el(
     "div",
     { class: "modal-mask", onclick: (e) => { if (e.target.classList.contains("modal-mask")) close(); } },

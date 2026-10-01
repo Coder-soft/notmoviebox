@@ -1,9 +1,8 @@
 // notmoviebox — shared proxy core.
 //
-// Pure, platform-agnostic logic used by both the local Node server
-// (server/index.mjs) and the Cloudflare Worker (worker/index.js).
+// Pure, platform-agnostic logic used by the Node server (server/index.mjs).
 // No node: builtins, no fs, no child_process — only fetch/URL/TextEncoder,
-// all of which exist in Node 20+ and in the Workers runtime.
+// all of which exist in Node 20+.
 
 export const UPSTREAM = "https://h5-api.aoneroom.com";
 export const BFF = "/wefeed-h5api-bff";
