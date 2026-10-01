@@ -254,34 +254,39 @@ async function handleStatic(req, res, url) {
 
 /* ── router ───────────────────────────────────────────────────────────────── */
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+function createServer() {
+  return http.createServer(async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
 
-  if (req.method === "OPTIONS") return send(res, 204, core.CORS);
+    if (req.method === "OPTIONS") return send(res, 204, core.CORS);
 
-  try {
-    if (url.pathname === "/health") return json(res, 200, { ok: true, runtime: "node" });
-    if (url.pathname === "/api/bridge/status") return json(res, 200, bridge.status());
-    if (url.pathname === "/api/bridge/session") return json(res, 200, await bridge.session());
-    if (url.pathname === "/api/bridge/start") {
-      try {
-        return json(res, 200, await bridge.start());
-      } catch (err) {
-        return json(res, 500, { error: String(err.message || err), code: err.code || "start_failed" });
+    try {
+      if (url.pathname === "/health") return json(res, 200, { ok: true, runtime: "node" });
+      if (url.pathname === "/api/bridge/status") return json(res, 200, bridge.status());
+      if (url.pathname === "/api/bridge/session") return json(res, 200, await bridge.session());
+      if (url.pathname === "/api/bridge/start") {
+        try {
+          return json(res, 200, await bridge.start());
+        } catch (err) {
+          return json(res, 500, { error: String(err.message || err), code: err.code || "start_failed" });
+        }
       }
+      if (url.pathname === "/api/bridge/stop") return json(res, 200, bridge.stop());
+      if (url.pathname.startsWith("/api/")) return await handleApi(req, res, url);
+      if (url.pathname.startsWith("/media/")) return await handleMediaPath(req, res, url);
+      if (url.pathname === "/media") return await handleMedia(req, res, url);
+      return await handleStatic(req, res, url);
+    } catch (err) {
+      if (res.headersSent) return res.destroy();
+      json(res, 500, { error: "internal", detail: String(err) });
     }
-    if (url.pathname === "/api/bridge/stop") return json(res, 200, bridge.stop());
-    if (url.pathname.startsWith("/api/")) return await handleApi(req, res, url);
-    if (url.pathname.startsWith("/media/")) return await handleMediaPath(req, res, url);
-    if (url.pathname === "/media") return await handleMedia(req, res, url);
-    return await handleStatic(req, res, url);
-  } catch (err) {
-    if (res.headersSent) return res.destroy();
-    json(res, 500, { error: "internal", detail: String(err) });
-  }
-});
+  });
+}
 
+// A fresh server per attempt: reusing one object would accumulate `listening`
+// callbacks across retries, so every attempted port would log a startup line.
 function start(port, attempts = 10) {
+  const server = createServer();
   server.once("error", (err) => {
     if (err.code === "EADDRINUSE" && attempts > 0) {
       console.warn(`Port ${port} in use, trying ${port + 1}…`);

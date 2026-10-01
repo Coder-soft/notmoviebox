@@ -6,7 +6,12 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.mjs",
-    "dev": "node --watch server/index.mjs"
+    "dev": "node --watch server/index.mjs",
+    "share": "node scripts/share.mjs",
+    "share:funnel": "node scripts/share.mjs --funnel",
+    "lan": "HOST=0.0.0.0 node server/index.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

@@ -39,6 +39,40 @@ docker build -t notmoviebox .
 docker run -p 8787:8787 notmoviebox
 ```
 
+## Share on your network
+
+`scripts/share.mjs` binds the server to all interfaces and prints the URLs other
+devices can use — LAN and Tailscale:
+
+```bash
+npm run share                    # LAN + Tailscale
+npm run share -- --port 9000
+npm run share -- --no-tailscale  # LAN only
+npm run share -- --funnel        # also expose publicly via Tailscale Funnel
+./scripts/share.mjs --help
+```
+
+Output looks like:
+
+```
+notmoviebox sharing
+
+local     http://127.0.0.1:8787/
+LAN       http://192.168.1.20:8787/   (en0)
+tailnet   http://100.99.82.53:8787/   (Tailscale IP — works on your tailnet)
+
+Ctrl+C to stop.
+```
+
+Because the server listens on `0.0.0.0`, the **Tailscale IP works with no extra
+setup** — any device on your tailnet can open it. The script additionally *tries*
+`tailscale serve` to add HTTPS on your `*.ts.net` name; if the CLI can't (the macOS
+GUI build commonly refuses), it says so and you just use the IP URL. `Ctrl+C` stops
+the server, and resets `tailscale serve` if it was configured.
+
+Flags: `--port <n>`, `--https-port <n>`, `--funnel`, `--no-tailscale`,
+`--keep-serve`.
+
 ## Why there is a server
 
 The MovieBox API and its CDN need two things a plain static page cannot do from a
